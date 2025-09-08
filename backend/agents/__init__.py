@@ -1,5 +1,8 @@
-# agents/__init__.py
+# backend/agents/__init__.py
 from .content_generator import ContentGeneratorAgent
+from .enhanced_content_generator import EnhancedContentGeneratorAgent
+from .enhanced_evaluator import EnhancedEvaluatorAgent
+from .enhanced_path_generator import EnhancedPathGeneratorAgent
 from .path_generator import PathGeneratorAgent
 from .evaluator import EvaluatorAgent
 from .orchestrator import AgentOrchestrator
@@ -14,6 +17,9 @@ from .models import (
 
 __all__ = [
     'ContentGeneratorAgent',
+    'EnhancedContentGeneratorAgent',
+    'EnhancedEvaluatorAgent', 
+    'EnhancedPathGeneratorAgent',
     'PathGeneratorAgent', 
     'EvaluatorAgent',
     'AgentOrchestrator',

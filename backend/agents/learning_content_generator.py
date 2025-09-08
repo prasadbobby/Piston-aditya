@@ -164,62 +164,42 @@ class LearningContentGenerator:
         
         json_content = response[start_idx:end_idx + 1]
         
-        # Fix the JSON content
-        json_content = self._fix_json_content(json_content)
+        # Fix the JSON content with robust escape handling
+        json_content = self._fix_json_content_robust(json_content)
         
         return json_content
-
-    def _fix_json_content(self, content: str) -> str:
-        """Fix JSON formatting issues"""
+    
+    def _fix_json_content_robust(self, content: str) -> str:
+        """Robust JSON fixing with escape character handling"""
         
-        # Replace actual newlines with escaped newlines in string values
-        lines = content.split('\n')
-        fixed_lines = []
-        in_string = False
-        escape_next = False
+        # Fix invalid escape sequences
+        content = content.replace("\\'", "'")  # Single quotes don't need escaping
         
-        for line in lines:
-            if not fixed_lines:  # First line
-                fixed_lines.append(line)
-                continue
-                
-            # Check if we're inside a string value
-            for char in line:
-                if escape_next:
-                    escape_next = False
-                    continue
-                if char == '\\':
-                    escape_next = True
-                    continue
-                if char == '"' and not escape_next:
-                    in_string = not in_string
-            
-            if in_string:
-                # We're inside a string, so this newline should be escaped
-                fixed_lines[-1] += '\\n' + line
-            else:
-                # We're not in a string, this is just JSON formatting
-                fixed_lines.append(line)
+        # Fix common invalid escapes
+        invalid_escapes = ['\\a', '\\c', '\\d', '\\e', '\\g', '\\h', '\\i', '\\j', '\\k', '\\l', '\\m', '\\o', '\\p', '\\q', '\\s', '\\v', '\\w', '\\x', '\\y', '\\z']
+        for invalid in invalid_escapes:
+            content = content.replace(invalid, invalid[1])  # Remove the backslash
         
-        content = '\n'.join(fixed_lines)
-        
-        # Remove actual newlines within string values and replace with \n
-        import re
-        
-        def replace_newlines_in_strings(match):
+        # Fix newlines and other control characters within strings
+        def fix_string_content(match):
             string_content = match.group(1)
             # Replace actual newlines with \n
             string_content = string_content.replace('\n', '\\n')
+            string_content = string_content.replace('\r', '\\r')
+            string_content = string_content.replace('\t', '\\t')
             return f'"{string_content}"'
         
-        # Find all string values and fix newlines
-        content = re.sub(r'"([^"]*(?:\\.[^"]*)*)"', replace_newlines_in_strings, content, flags=re.DOTALL)
+        # Apply to quoted strings
+        content = re.sub(r'"([^"]*)"', fix_string_content, content)
         
-        # Clean up any remaining issues
-        content = content.replace('\n', ' ')  # Remove remaining newlines
-        content = re.sub(r'\s+', ' ', content)  # Normalize whitespace
+        # Remove trailing commas
+        content = re.sub(r',\s*([}\]])', r'\1', content)
         
-        return content
+        # Clean up whitespace
+        content = re.sub(r'\s+', ' ', content)
+        
+        return content.strip()
+    
     def _sanitize_json_content(self, content: str) -> str:
         """Sanitize JSON content to prevent parsing errors"""
         

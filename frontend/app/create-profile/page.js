@@ -6,6 +6,7 @@ import { apiClient } from '../../lib/api';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Card, { CardContent, CardHeader } from '../../components/ui/Card';
+import ProfileCreationLoader from '../../components/ui/ProfileCreationLoader';
 import { validateRequired } from '../../lib/utils';
 import toast from 'react-hot-toast';
 
@@ -13,6 +14,8 @@ export default function CreateProfilePage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingFocusAreas, setIsGeneratingFocusAreas] = useState(false);
+  const [profileId, setProfileId] = useState(null);
+  const [showLoader, setShowLoader] = useState(false); 
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     name: '',
@@ -164,29 +167,56 @@ export default function CreateProfilePage() {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
-  const handleSubmit = async () => {
-    if (!validateStep(3)) {
-      toast.error('Please complete all required fields');
-      return;
+const handleSubmit = async () => {
+  if (!validateStep(3)) {
+    toast.error('Please complete all required fields');
+    return;
+  }
+
+  setIsLoading(true);
+  setShowLoader(true);
+
+  try {
+    console.log('Submitting form data:', formData);
+    
+    const submissionData = {
+      ...formData,
+      custom_subject: formData.subject
+    };
+    
+    const response = await apiClient.createLearner(submissionData);
+    console.log('Create learner response:', response);
+    
+    if (response.success) {
+      // Store the profile ID for the loader
+      setProfileId(response.data.profile_id); // Add this state
+      return response;
+    } else {
+      setShowLoader(false);
+      throw new Error(response.error || 'Failed to create profile');
     }
+  } catch (error) {
+    console.error('Error creating profile:', error);
+    setShowLoader(false);
+    toast.error(error.message || 'Failed to create profile');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-    setIsLoading(true);
 
+  const handleLoaderComplete = async () => {
+    // This gets called when the loader animation finishes
+    setShowLoader(false);
+    
     try {
-      console.log('Submitting form data:', formData);
-      
-      const loadingToast = toast.loading('Creating your personalized learning profile...');
-      
-      // Prepare submission data
+      // Re-submit to get the response
       const submissionData = {
         ...formData,
-        custom_subject: formData.subject // Send as custom_subject to backend
+        custom_subject: formData.subject
       };
       
       const response = await apiClient.createLearner(submissionData);
-      console.log('Create learner response:', response);
-      
-      toast.dismiss(loadingToast);
       
       if (response.success) {
         toast.success('Profile created successfully!');
@@ -196,23 +226,21 @@ export default function CreateProfilePage() {
         }
         
         router.push(`/pretest/${response.data.profile_id}`);
-      } else {
-        throw new Error(response.error || 'Failed to create profile');
       }
     } catch (error) {
-      console.error('Error creating profile:', error);
-      if (error.code === 'ECONNABORTED') {
-        toast.error('Content generation is taking longer than expected. Please try again.');
-      } else {
-        toast.error(error.message || 'Failed to create profile');
-      }
-    } finally {
-      setIsLoading(false);
+      toast.error('Something went wrong. Please try again.');
     }
   };
 
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-purple-50">
+      <ProfileCreationLoader 
+  isVisible={showLoader} 
+  onComplete={handleLoaderComplete}
+  profileId={profileId} // Pass the profile ID
+/>
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary-600 to-primary-700 rounded-2xl mb-6">
@@ -539,34 +567,43 @@ export default function CreateProfilePage() {
             {/* Navigation Buttons */}
             <div className="flex justify-between items-center pt-8 border-t border-gray-200">
               <Button
-                type="button"
-                variant="outline"
-                onClick={currentStep === 1 ? () => router.back() : handlePrevious}
-                className="px-6 py-3"
-              >
-                {currentStep === 1 ? 'Back to Home' : 'Previous'}
-              </Button>
+            type="button"
+            variant="outline"
+            onClick={currentStep === 1 ? () => router.back() : handlePrevious}
+            className="px-6 py-3"
+            disabled={showLoader} // Disable during loading
+          >
+            {currentStep === 1 ? 'Back to Home' : 'Previous'}
+          </Button>
 
               <div className="flex space-x-3">
-                {currentStep < 4 ? (
-                  <Button
-                    type="button"
-                    onClick={handleNext}
-                    className="px-8 py-3"
-                    style={{ backgroundColor: '#8700e2' }}
-                    disabled={currentStep === 3 && !formData.subject.trim()}
-                  >
-                    Continue
-                  </Button>
+            {currentStep < 4 ? (
+              <Button
+                type="button"
+                onClick={handleNext}
+                className="px-8 py-3"
+                style={{ backgroundColor: '#8700e2' }}
+                disabled={currentStep === 3 && !formData.subject.trim()}
+              >
+                Continue
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={handleSubmit}
+                loading={isLoading}
+                disabled={showLoader} // Disable during loading
+                className="px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {showLoader ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    Processing...
+                  </>
                 ) : (
-                  <Button
-                    type="button"
-                    onClick={handleSubmit}
-                    loading={isLoading}
-                    className="px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
-                  >
-                    Create Profile & Start Assessment
-                  </Button>
+                  'Create Profile & Start Assessment'
+                )}
+              </Button>
                 )}
               </div>
             </div>
