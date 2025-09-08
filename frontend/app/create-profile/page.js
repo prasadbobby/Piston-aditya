@@ -167,80 +167,71 @@ export default function CreateProfilePage() {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
-const handleSubmit = async () => {
-  if (!validateStep(3)) {
-    toast.error('Please complete all required fields');
-    return;
-  }
-
-  setIsLoading(true);
-  setShowLoader(true);
-
-  try {
-    console.log('Submitting form data:', formData);
-    
-    const submissionData = {
-      ...formData,
-      custom_subject: formData.subject
-    };
-    
-    const response = await apiClient.createLearner(submissionData);
-    console.log('Create learner response:', response);
-    
-    if (response.success) {
-      // Store the profile ID for the loader
-      setProfileId(response.data.profile_id); // Add this state
-      return response;
-    } else {
-      setShowLoader(false);
-      throw new Error(response.error || 'Failed to create profile');
+  const handleSubmit = async () => {
+    if (!validateStep(3)) {
+      toast.error('Please complete all required fields');
+      return;
     }
-  } catch (error) {
-    console.error('Error creating profile:', error);
-    setShowLoader(false);
-    toast.error(error.message || 'Failed to create profile');
-  } finally {
-    setIsLoading(false);
-  }
-};
 
+    // Step 1: Show button loading state
+    setIsLoading(true);
 
-  const handleLoaderComplete = async () => {
-    // This gets called when the loader animation finishes
-    setShowLoader(false);
-    
     try {
-      // Re-submit to get the response
+      console.log('🚀 Submitting form data:', formData);
+      
       const submissionData = {
         ...formData,
         custom_subject: formData.subject
       };
       
+      // Step 2: Create the profile
       const response = await apiClient.createLearner(submissionData);
+      console.log('📝 Create learner response:', response);
       
-      if (response.success) {
-        toast.success('Profile created successfully!');
+      if (response.success && response.data.profile_id) {
+        const newProfileId = response.data.profile_id;
+        console.log(`✅ Profile created successfully with ID: ${newProfileId}`);
         
-        if (response.data.status === 'generating_content') {
-          toast.success('AI is generating your personalized content in the background!');
-        }
+        // Step 3: Stop button loading and start ProfileCreationLoader
+        setIsLoading(false);
+        setProfileId(newProfileId);
+        setShowLoader(true);
         
-        router.push(`/pretest/${response.data.profile_id}`);
+        toast.success('Profile created! Preparing your personalized assessment...');
+        
+      } else {
+        throw new Error(response.error || 'Failed to create profile');
       }
     } catch (error) {
-      toast.error('Something went wrong. Please try again.');
+      console.error('❌ Error creating profile:', error);
+      setIsLoading(false); // Stop button loading on error
+      toast.error(error.message || 'Failed to create profile');
     }
   };
 
-
+  const handleLoaderComplete = () => {
+    // This gets called when the loader confirms pretest is ready
+    console.log('🎉 Loader complete, navigating to pretest...');
+    setShowLoader(false);
+    
+    if (profileId) {
+      toast.success('Assessment ready! Let\'s get started!');
+      router.push(`/pretest/${profileId}`);
+    } else {
+      toast.error('Something went wrong. Please try again.');
+      console.error('❌ No profile ID available for navigation');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-purple-50">
+      {/* ProfileCreationLoader - only shows after profile is created */}
       <ProfileCreationLoader 
-  isVisible={showLoader} 
-  onComplete={handleLoaderComplete}
-  profileId={profileId} // Pass the profile ID
-/>
+        isVisible={showLoader} 
+        onComplete={handleLoaderComplete}
+        profileId={profileId}
+      />
+      
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary-600 to-primary-700 rounded-2xl mb-6">
@@ -567,43 +558,43 @@ const handleSubmit = async () => {
             {/* Navigation Buttons */}
             <div className="flex justify-between items-center pt-8 border-t border-gray-200">
               <Button
-            type="button"
-            variant="outline"
-            onClick={currentStep === 1 ? () => router.back() : handlePrevious}
-            className="px-6 py-3"
-            disabled={showLoader} // Disable during loading
-          >
-            {currentStep === 1 ? 'Back to Home' : 'Previous'}
-          </Button>
+                type="button"
+                variant="outline"
+                onClick={currentStep === 1 ? () => router.back() : handlePrevious}
+                className="px-6 py-3"
+                disabled={isLoading} // Only disable during profile creation
+              >
+                {currentStep === 1 ? 'Back to Home' : 'Previous'}
+              </Button>
 
               <div className="flex space-x-3">
-            {currentStep < 4 ? (
-              <Button
-                type="button"
-                onClick={handleNext}
-                className="px-8 py-3"
-                style={{ backgroundColor: '#8700e2' }}
-                disabled={currentStep === 3 && !formData.subject.trim()}
-              >
-                Continue
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                onClick={handleSubmit}
-                loading={isLoading}
-                disabled={showLoader} // Disable during loading
-                className="px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {showLoader ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                    Processing...
-                  </>
+                {currentStep < 4 ? (
+                  <Button
+                    type="button"
+                    onClick={handleNext}
+                    className="px-8 py-3"
+                    style={{ backgroundColor: '#8700e2' }}
+                    disabled={currentStep === 3 && !formData.subject.trim()}
+                  >
+                    Continue
+                  </Button>
                 ) : (
-                  'Create Profile & Start Assessment'
-                )}
-              </Button>
+                  <Button
+                    type="button"
+                    onClick={handleSubmit}
+                    loading={isLoading} // Shows spinner only during profile creation
+                    disabled={isLoading} // Disable only during profile creation
+                    className="px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                        Creating Profile...
+                      </>
+                    ) : (
+                      'Create Profile & Start Assessment'
+                    )}
+                  </Button>
                 )}
               </div>
             </div>
