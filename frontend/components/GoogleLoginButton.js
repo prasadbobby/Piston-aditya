@@ -1,5 +1,6 @@
+// frontend/components/GoogleLoginButton.js
 'use client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { authService } from '../lib/auth';
 import Button from './ui/Button';
 import LoadingSpinner from './ui/LoadingSpinner';
@@ -15,106 +16,22 @@ const GoogleIcon = ({ className }) => (
 
 export default function GoogleLoginButton({ onSuccess, onError, className = '', children }) {
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleReady, setIsGoogleReady] = useState(false);
-  const [buttonId] = useState(`google-btn-${Math.random().toString(36).substr(2, 9)}`);
 
-  useEffect(() => {
-    // Check if Google client ID is configured
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    console.log('🔑 Google Client ID:', clientId ? `${clientId.substring(0, 20)}...` : 'NOT CONFIGURED');
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
     
-    if (!clientId) {
-      console.error('❌ NEXT_PUBLIC_GOOGLE_CLIENT_ID is not configured');
-      if (onError) {
-        onError(new Error('Google OAuth is not configured. Please check your environment variables.'));
-      }
-      return;
-    }
-
-    // Load Google Identity Services script
-    const loadGoogleScript = () => {
-      // Check if script already exists
-      if (document.querySelector('script[src*="accounts.google.com/gsi/client"]')) {
-        if (window.google) {
-          initializeGoogle();
-        }
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      script.onload = initializeGoogle;
-      script.onerror = () => {
-        console.error('❌ Failed to load Google Identity Services');
-        if (onError) {
-          onError(new Error('Failed to load Google services. Please check your internet connection.'));
-        }
-      };
-      document.head.appendChild(script);
-    };
-
-    const initializeGoogle = () => {
-      try {
-        if (window.google && window.google.accounts) {
-          console.log('🚀 Initializing Google OAuth...');
-          
-          window.google.accounts.id.initialize({
-            client_id: clientId,
-            callback: handleGoogleResponse,
-            auto_select: false,
-            cancel_on_tap_outside: true,
-            use_fedcm_for_prompt: false,
-          });
-
-          // Render the button
-          setTimeout(() => {
-            const buttonContainer = document.getElementById(buttonId);
-            if (buttonContainer && window.google.accounts.id.renderButton) {
-              window.google.accounts.id.renderButton(buttonContainer, {
-                theme: 'outline',
-                size: 'large',
-                width: 350,
-                type: 'standard',
-                text: 'continue_with',
-                shape: 'rectangular',
-                logo_alignment: 'left',
-              });
-            }
-          }, 100);
-
-          setIsGoogleReady(true);
-          console.log('✅ Google OAuth initialized successfully');
-        }
-      } catch (error) {
-        console.error('❌ Error initializing Google OAuth:', error);
-        if (onError) {
-          onError(error);
-        }
-      }
-    };
-
-    loadGoogleScript();
-  }, [buttonId, onError]);
-
-  const handleGoogleResponse = async (response) => {
     try {
-      setIsLoading(true);
-      console.log('📥 Received Google credential response');
+      console.log('🔐 Starting Google authentication...');
+      const result = await authService.googleLogin();
       
-      if (!response.credential) {
-        throw new Error('No credential received from Google');
-      }
-      
-      const result = await authService.googleLogin(response.credential);
-      console.log('✅ Google login successful:', result);
-      
-      if (onSuccess) {
-        onSuccess(result);
+      if (result.success) {
+        console.log('✅ Authentication successful:', result.user);
+        if (onSuccess) {
+          onSuccess(result);
+        }
       }
     } catch (error) {
-      console.error('❌ Google login error:', error);
+      console.error('❌ Authentication failed:', error);
       if (onError) {
         onError(error);
       }
@@ -123,77 +40,19 @@ export default function GoogleLoginButton({ onSuccess, onError, className = '', 
     }
   };
 
-  const handleCustomButtonClick = () => {
-    if (!isGoogleReady) {
-      if (onError) {
-        onError(new Error('Google services not ready. Please refresh the page.'));
-      }
-      return;
-    }
-
-    try {
-      console.log('🔐 Triggering Google login...');
-      
-      // Try to prompt the user
-      window.google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          console.log('ℹ️ Google One Tap not displayed, user needs to click the button');
-        }
-      });
-    } catch (error) {
-      console.error('❌ Error triggering Google login:', error);
-      if (onError) {
-        onError(error);
-      }
-    }
-  };
-
-  // Show the Google-rendered button if ready, otherwise show custom button
   return (
-    <div className="w-full">
-      {isGoogleReady ? (
-        <div className="w-full">
-          {/* Google's rendered button */}
-          <div id={buttonId} className="w-full flex justify-center"></div>
-          
-          {/* Fallback custom button */}
-          <div className="mt-2">
-            <Button
-              onClick={handleCustomButtonClick}
-              disabled={isLoading}
-              className={`w-full bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-400 ${className}`}
-              size="lg"
-            >
-              {isLoading ? (
-                <LoadingSpinner size="sm" className="mr-3" />
-              ) : (
-                <GoogleIcon className="w-5 h-5 mr-3" />
-              )}
-              {isLoading ? 'Signing you in...' : (children || 'Continue with Google')}
-            </Button>
-          </div>
-        </div>
+    <Button
+      onClick={handleGoogleLogin}
+      disabled={isLoading}
+      className={`w-full bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-400 shadow-lg hover:shadow-xl transition-all duration-300 ${className}`}
+      size="lg"
+    >
+      {isLoading ? (
+        <LoadingSpinner size="sm" className="mr-3" />
       ) : (
-        <Button
-          onClick={handleCustomButtonClick}
-          disabled={!isGoogleReady || isLoading}
-          className={`w-full bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-400 ${className}`}
-          size="lg"
-        >
-          {isLoading ? (
-            <LoadingSpinner size="sm" className="mr-3" />
-          ) : (
-            <GoogleIcon className="w-5 h-5 mr-3" />
-          )}
-          {isLoading ? 'Loading...' : (children || 'Continue with Google')}
-        </Button>
+        <GoogleIcon className="w-5 h-5 mr-3" />
       )}
-      
-      {!isGoogleReady && !isLoading && (
-        <p className="text-xs text-gray-500 mt-2 text-center">
-          Loading Google services...
-        </p>
-      )}
-    </div>
+      {isLoading ? 'Signing you in...' : (children || 'Continue with Google')}
+    </Button>
   );
 }

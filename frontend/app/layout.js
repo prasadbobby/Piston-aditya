@@ -1,5 +1,7 @@
+// frontend/app/layout.js
 import './globals.css';
 import Header from '../components/layout/Header';
+import { AuthProvider } from '../lib/AuthContext';
 import { Toaster } from 'react-hot-toast';
 
 export const metadata = {
@@ -11,30 +13,32 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className="min-h-screen bg-gray-50">
-        <Header />
-        <main className="flex-1">
-          {children}
-        </main>
-        <Toaster 
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: '#363636',
-              color: '#fff',
-            },
-            success: {
+        <AuthProvider>
+          <Header />
+          <main className="flex-1">
+            {children}
+          </main>
+          <Toaster 
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
               style: {
-                background: '#10b981',
+                background: '#363636',
+                color: '#fff',
               },
-            },
-            error: {
-              style: {
-                background: '#ef4444',
+              success: {
+                style: {
+                  background: '#10b981',
+                },
               },
-            },
-          }}
-        />
+              error: {
+                style: {
+                  background: '#ef4444',
+                },
+              },
+            }}
+          />
+        </AuthProvider>
       </body>
     </html>
   );

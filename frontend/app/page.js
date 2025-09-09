@@ -3,15 +3,14 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '../lib/api';
-import { simpleAuth } from '../lib/simpleAuth';
+import { useAuth } from '../lib/AuthContext';
 import Button from '../components/ui/Button';
 import Card, { CardContent } from '../components/ui/Card';
 
 export default function HomePage() {
   const router = useRouter();
+  const { user, isAuthenticated, loading } = useAuth(); // Added loading here
   const [systemHealth, setSystemHealth] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState(null);
   const [stats, setStats] = useState({
     totalLearners: 0,
     totalPaths: 0,
@@ -21,13 +20,14 @@ export default function HomePage() {
   useEffect(() => {
     checkSystemHealth();
     loadDashboardStats();
-    
-    // Check auth status
-    const loggedIn = simpleAuth.isLoggedIn();
-    const userData = simpleAuth.getUser();
-    setIsLoggedIn(loggedIn);
-    setUser(userData);
   }, []);
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, loading, router]);
 
   const checkSystemHealth = async () => {
     try {
@@ -54,11 +54,38 @@ export default function HomePage() {
   };
 
   const handleStartLearning = () => {
-    router.push('/create-profile');
+    if (isAuthenticated) {
+      router.push('/dashboard/create-profile');
+    } else {
+      router.push('/login');
+    }
   };
 
+  // Show loading while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
- return (
+  // Show redirect message for authenticated users
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Redirecting to dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50">
       {/* Hero Section */}
       <section className="relative overflow-hidden">
@@ -90,80 +117,41 @@ export default function HomePage() {
                 </p>
               </div>
 
-              {/* CTA Section - Updated to show different content based on login status */}
+              {/* CTA Section for Guest Users */}
               <div className="space-y-6">
-                {isLoggedIn && user ? (
-                  // Logged-in user content
-                  <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-xl">
-                    <div className="flex items-center space-x-4 mb-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
-                        <span className="text-white text-xl">
-                          {user.type === 'admin' ? '⚙️' : user.type === 'teacher' ? '👨‍🏫' : '🎓'}
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-gray-900">Welcome back!</h3>
-                        <p className="text-gray-600 capitalize">Logged in as {user.type}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      <Button
-                        onClick={handleStartLearning}
-                        className="bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white shadow-lg"
-                      >
-                        <span className="mr-2">🚀</span>
-                        Continue Learning
-                      </Button>
-                      
-                      {user.type === 'admin' && (
-                        <Button
-                          onClick={() => router.push('/admin')}
-                          variant="outline"
-                          className="border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white"
-                        >
-                          <span className="mr-2">⚙️</span>
-                          Admin Panel
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  // Guest user content
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <Button
-                      onClick={handleStartLearning}
-                      className="group relative bg-primary-600 hover:bg-primary-700 text-white px-8 py-4 text-lg font-semibold rounded-2xl shadow-2xl hover:shadow-primary-500/25 transform hover:-translate-y-1 transition-all duration-300"
-                    >
-                      <span className="relative z-10 flex items-center">
-                        Start Learning Now
-                        <svg className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                        </svg>
-                      </span>
-                    </Button>
-                    
-                    <Button
-                      onClick={() => router.push('/login')}
-                      variant="outline"
-                      className="border-2 border-gray-400 text-gray-700 hover:bg-gray-100 hover:border-gray-500 px-8 py-4 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
-                    >
-                      <span className="flex items-center">
-                        <svg className="mr-2 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                        </svg>
-                        Sign In
-                      </span>
-                    </Button>
-                  </div>
-                )}
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Button
+                    onClick={() => router.push('/login')}
+                    className="group relative bg-primary-600 hover:bg-primary-700 text-white px-8 py-4 text-lg font-semibold rounded-2xl shadow-2xl hover:shadow-primary-500/25 transform hover:-translate-y-1 transition-all duration-300"
+                  >
+                    <span className="relative z-10 flex items-center">
+                      Sign In with Google
+                      <svg className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                    </span>
+                  </Button>
+                  
+                  <Button
+                    onClick={() => router.push('/create-profile')}
+                    variant="outline"
+                    className="border-2 border-gray-400 text-gray-700 hover:bg-gray-100 hover:border-gray-500 px-8 py-4 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
+                  >
+                    <span className="flex items-center">
+                      <svg className="mr-2 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Try Demo
+                    </span>
+                  </Button>
+                </div>
                 
                 <div className="flex items-center space-x-6 text-sm text-gray-500">
                   <div className="flex items-center">
                     <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
-                    No setup required
+                    Google Authentication
                   </div>
                   <div className="flex items-center">
                     <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -291,6 +279,69 @@ export default function HomePage() {
         </section>
       )}
 
+      {/* Authentication Benefits Section */}
+      <section className="py-24 bg-gradient-to-r from-primary-600 to-indigo-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-white mb-4">
+              Why Sign In with Google?
+            </h2>
+            <p className="text-xl text-primary-100 max-w-3xl mx-auto">
+              Get the full personalized learning experience with secure Google authentication
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                icon: (
+                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                ),
+                title: "Secure & Private",
+                description: "Your data is protected with Google's industry-leading security infrastructure.",
+                bgColor: "bg-white/10"
+              },
+              {
+                icon: (
+                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                ),
+                title: "Instant Access",
+                description: "One-click sign in with your Google account. No passwords to remember.",
+                bgColor: "bg-white/10"
+              },
+              {
+                icon: (
+                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                ),
+                title: "Personalized Experience",
+                description: "Your learning progress and preferences are saved and synced across devices.",
+                bgColor: "bg-white/10"
+              }
+            ].map((feature, index) => (
+              <Card key={index} className="bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/20 transition-all duration-300">
+                <CardContent className="p-8 text-center text-white">
+                  <div className={`inline-flex items-center justify-center w-16 h-16 ${feature.bgColor} rounded-2xl mb-6`}>
+                    {feature.icon}
+                  </div>
+                  <h3 className="text-xl font-bold mb-4">
+                    {feature.title}
+                  </h3>
+                  <p className="text-primary-100 leading-relaxed">
+                    {feature.description}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Features Section */}
       <section className="py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -412,65 +463,65 @@ export default function HomePage() {
             ].map((style, index) => (
               <div key={index} className={`group p-6 bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-l-4 ${
                 style.color === 'primary' ? 'border-primary-500' : 
-                style.color === 'green' ? 'border-green-500' : 
-                'border-orange-500'
-              }`}>
-                <div className="text-center">
-                  <div className={`inline-flex items-center justify-center w-12 h-12 ${
-                    style.color === 'primary' ? 'bg-primary-100 text-primary-600' : 
-                    style.color === 'green' ? 'bg-green-100 text-green-600' : 
-                    'bg-orange-100 text-orange-600'
-                  } rounded-xl mb-4 group-hover:scale-110 transition-transform`}>
-                    {style.icon}
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{style.title}</h3>
-                  <p className="text-gray-600 text-sm">{style.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+               style.color === 'green' ? 'border-green-500' : 
+               'border-orange-500'
+             }`}>
+               <div className="text-center">
+                 <div className={`inline-flex items-center justify-center w-12 h-12 ${
+                   style.color === 'primary' ? 'bg-primary-100 text-primary-600' : 
+                   style.color === 'green' ? 'bg-green-100 text-green-600' : 
+                   'bg-orange-100 text-orange-600'
+                 } rounded-xl mb-4 group-hover:scale-110 transition-transform`}>
+                   {style.icon}
+                 </div>
+                 <h3 className="text-lg font-bold text-gray-900 mb-2">{style.title}</h3>
+                 <p className="text-gray-600 text-sm">{style.description}</p>
+               </div>
+             </div>
+           ))}
+         </div>
+       </div>
+     </section>
 
-      {/* CTA Section */}
-      <section className="py-24 bg-primary-600">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-            Ready to Transform Your Learning?
-          </h2>
-          <p className="text-xl text-primary-100 mb-8 max-w-2xl mx-auto">
-            Join thousands of learners who have revolutionized their education with AI-powered personalization
-          </p>
-          
-          <div className="space-y-6">
-            <Button
-              onClick={handleStartLearning}
-              className="group bg-white text-primary-600 hover:bg-gray-50 px-8 py-4 text-lg font-semibold rounded-2xl shadow-2xl hover:shadow-white/25 transform hover:-translate-y-1 transition-all duration-300"
-            >
-              <span className="flex items-center">
-                Begin Your AI Learning Journey
-                <svg className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </span>
-            </Button>
-            
-            <p className="text-primary-200 text-sm">
-              Start learning in under 60 seconds • Personalized by AI • No commitment required
-            </p>
-          </div>
-        </div>
-      </section>
+     {/* CTA Section */}
+     <section className="py-24 bg-primary-600">
+       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+         <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+           Ready to Transform Your Learning?
+         </h2>
+         <p className="text-xl text-primary-100 mb-8 max-w-2xl mx-auto">
+           Join thousands of learners who have revolutionized their education with AI-powered personalization
+         </p>
+         
+         <div className="space-y-6">
+           <Button
+             onClick={() => router.push('/login')}
+             className="group bg-white text-primary-600 hover:bg-gray-50 px-8 py-4 text-lg font-semibold rounded-2xl shadow-2xl hover:shadow-white/25 transform hover:-translate-y-1 transition-all duration-300"
+           >
+             <span className="flex items-center">
+               Sign In with Google to Start
+               <svg className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+               </svg>
+             </span>
+           </Button>
+           
+           <p className="text-primary-200 text-sm">
+             Secure Google authentication • Start learning in under 60 seconds • No commitment required
+           </p>
+         </div>
+       </div>
+     </section>
 
-      {/* System Status */}
-      {systemHealth && (
-        <div className="fixed bottom-6 right-6">
-          <div className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg border border-green-200 flex items-center space-x-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-sm text-green-700 font-medium">System Online</span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+     {/* System Status */}
+     {systemHealth && (
+       <div className="fixed bottom-6 right-6">
+         <div className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg border border-green-200 flex items-center space-x-2">
+           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+           <span className="text-sm text-green-700 font-medium">System Online</span>
+         </div>
+       </div>
+     )}
+   </div>
+ );
 }

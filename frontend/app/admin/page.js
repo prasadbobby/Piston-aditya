@@ -7,9 +7,48 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import Button from '../../components/ui/Button';
 import { formatDate, getLearningStyleName } from '../../lib/utils';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../lib/AuthContext';
 
 export default function AdminPage() {
+  const { user, isAuthenticated, isAdmin } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!isAuthenticated || !isAdmin) {
+      toast.error('Access denied. Admin privileges required.');
+      router.push('/');
+      return;
+    }
+  }, [isAuthenticated, isAdmin, router]);
+
+  // Show loading while checking auth
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Checking permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied for non-admin users
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🚫</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
+          <p className="text-gray-600 mb-4">You need administrator privileges to access this page.</p>
+          <Button onClick={() => router.push('/')}>
+            Return to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [learners, setLearners] = useState([]);
