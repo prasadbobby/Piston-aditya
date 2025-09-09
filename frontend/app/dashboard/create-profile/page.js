@@ -179,7 +179,6 @@ export default function CreateProfilePage() {
     }
 
     setIsLoading(true);
-    setShowLoader(true);
 
     try {
       console.log('Submitting form data:', formData);
@@ -196,7 +195,7 @@ export default function CreateProfilePage() {
       console.log('Create learner response:', response);
       
       if (response.success) {
-        // Store the profile ID for the loader
+        // Store the profile ID first
         setProfileId(response.data.profile_id);
         
         // Save to history
@@ -222,14 +221,17 @@ export default function CreateProfilePage() {
         existingHistory.unshift(historyItem);
         localStorage.setItem(`user_history_${user?.uid}`, JSON.stringify(existingHistory));
         
+        // Show loader AFTER profile is created and profileId is set
+        setTimeout(() => {
+          setShowLoader(true);
+        }, 100); // Small delay to ensure state is updated
+        
         return response;
       } else {
-        setShowLoader(false);
         throw new Error(response.error || 'Failed to create profile');
       }
     } catch (error) {
       console.error('Error creating profile:', error);
-      setShowLoader(false);
       toast.error(error.message || 'Failed to create profile');
     } finally {
       setIsLoading(false);
@@ -237,196 +239,178 @@ export default function CreateProfilePage() {
   };
 
   const handleLoaderComplete = async () => {
-    // This gets called when the loader animation finishes
+    console.log('🏁 Loader completed, navigating to pretest...');
     setShowLoader(false);
     
-    try {
-      // Re-submit to get the response
-      const submissionData = {
-        ...formData,
-        custom_subject: formData.subject,
-        user_id: user?.uid,
-        created_by: user?.email,
-        name: user?.name || 'User'
-      };
+    if (profileId) {
+      toast.success('Profile created successfully!');
+      router.push(`/pretest/${profileId}`);
+    } else {
+      toast.error('Something went wrong. Please try again.');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  return (
+    <DashboardLayout title="Create Learning Profile">
+      <ProfileCreationLoader 
+        isVisible={showLoader} 
+        onComplete={handleLoaderComplete}
+        profileId={profileId}
+      />
       
-      const response = await apiClient.createLearner(submissionData);
-     
-     if (response.success) {
-       toast.success('Profile created successfully!');
-       
-       if (response.data.status === 'generating_content') {
-         toast.success('AI is generating your personalized content in the background!');
-       }
-       
-       router.push(`/pretest/${response.data.profile_id}`);
-     }
-   } catch (error) {
-     toast.error('Something went wrong. Please try again.');
-   }
- };
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary-600 to-primary-700 rounded-2xl mb-6">
+            <span className="text-2xl text-white">🎓</span>
+          </div>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            Create Your Learning Profile
+          </h1>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Help us understand your learning preferences to create the perfect personalized experience for <strong>{user?.name?.split(' ')[0] || 'you'}</strong>
+          </p>
+        </div>
 
- if (loading) {
-   return (
-     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-       <div className="text-center">
-         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-         <p className="mt-4 text-gray-600">Loading...</p>
-       </div>
-     </div>
-   );
- }
+        {/* Progress Steps */}
+        <div className="mb-12">
+          <div className="flex items-center justify-center space-x-4 mb-8">
+            {steps.map((step, index) => (
+              <div key={step.id} className="flex items-center">
+                <div className={`flex items-center justify-center w-12 h-12 rounded-full text-sm font-bold transition-all duration-300 ${
+                  currentStep >= step.id 
+                    ? 'bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-lg' 
+                    : 'bg-gray-200 text-gray-500'
+                }`}>
+                  {currentStep > step.id ? '✓' : step.icon}
+                </div>
+                {index < steps.length - 1 && (
+                  <div className={`w-16 h-1 mx-2 rounded-full transition-all duration-300 ${
+                    currentStep > step.id ? 'bg-primary-600' : 'bg-gray-200'
+                  }`}></div>
+                )}
+              </div>
+            ))}
+          </div>
+          
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              {steps[currentStep - 1].title}
+            </h2>
+            <div className="text-sm text-gray-500">
+              Step {currentStep} of {steps.length}
+            </div>
+          </div>
+        </div>
 
- if (!isAuthenticated) {
-   return null;
- }
+        <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
+          <CardContent className="p-8">
+            <div className="min-h-[400px]">
+              {/* Step 1: Learning Style */}
+              {currentStep === 1 && (
+                <div className="animate-fade-in space-y-6">
+                  <div className="text-center mb-8">
+                    <div className="text-6xl mb-4">🎯</div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">How do you learn best?</h3>
+                    <p className="text-gray-600">Choose the learning style that resonates with you most</p>
+                  </div>
 
- return (
-   <DashboardLayout title="Create Learning Profile">
-     <ProfileCreationLoader 
-       isVisible={showLoader} 
-       onComplete={handleLoaderComplete}
-       profileId={profileId}
-     />
-     
-     <div className="max-w-4xl mx-auto">
-       <div className="text-center mb-12">
-         <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary-600 to-primary-700 rounded-2xl mb-6">
-           <span className="text-2xl text-white">🎓</span>
-         </div>
-         <h1 className="text-4xl font-bold text-gray-900 mb-4">
-           Create Your Learning Profile
-         </h1>
-         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-           Help us understand your learning preferences to create the perfect personalized experience for <strong>{user?.name?.split(' ')[0] || 'you'}</strong>
-         </p>
-       </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {learningStyleOptions.map((option) => (
+                      <label
+                        key={option.value}
+                        className={`relative p-6 border-2 rounded-2xl cursor-pointer transition-all duration-300 hover:shadow-lg ${
+                          formData.learning_style === option.value
+                            ? 'border-primary-600 bg-primary-50 shadow-lg'
+                            : 'border-gray-200 hover:border-primary-300'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="learning_style"
+                          value={option.value}
+                          checked={formData.learning_style === option.value}
+                          onChange={handleInputChange}
+                          className="sr-only"
+                        />
+                        <div className="flex items-start space-x-4">
+                          <div className="text-3xl">{option.icon}</div>
+                          <div className="flex-1">
+                            <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                              {option.label}
+                            </h4>
+                            <p className="text-sm text-gray-600">
+                              {option.description}
+                            </p>
+                          </div>
+                        </div>
+                        {formData.learning_style === option.value && (
+                          <div className="absolute top-4 right-4 w-6 h-6 bg-primary-600 rounded-full flex items-center justify-center">
+                            <span className="text-white text-sm">✓</span>
+                          </div>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                  {errors.learning_style && (
+                    <p className="text-sm text-red-600 text-center">{errors.learning_style}</p>
+                  )}
+                </div>
+              )}
 
-       {/* Progress Steps */}
-       <div className="mb-12">
-         <div className="flex items-center justify-center space-x-4 mb-8">
-           {steps.map((step, index) => (
-             <div key={step.id} className="flex items-center">
-               <div className={`flex items-center justify-center w-12 h-12 rounded-full text-sm font-bold transition-all duration-300 ${
-                 currentStep >= step.id 
-                   ? 'bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-lg' 
-                   : 'bg-gray-200 text-gray-500'
-               }`}>
-                 {currentStep > step.id ? '✓' : step.icon}
-               </div>
-               {index < steps.length - 1 && (
-                 <div className={`w-16 h-1 mx-2 rounded-full transition-all duration-300 ${
-                   currentStep > step.id ? 'bg-primary-600' : 'bg-gray-200'
-                 }`}></div>
-               )}
-             </div>
-           ))}
-         </div>
-         
-         <div className="text-center">
-           <h2 className="text-xl font-semibold text-gray-900 mb-2">
-             {steps[currentStep - 1].title}
-           </h2>
-           <div className="text-sm text-gray-500">
-             Step {currentStep} of {steps.length}
-           </div>
-         </div>
-       </div>
+              {/* Step 2: Subject and Knowledge Level */}
+              {currentStep === 2 && (
+                <div className="animate-fade-in space-y-8">
+                  <div className="text-center mb-8">
+                    <div className="text-6xl mb-4">📚</div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">What would you like to learn?</h3>
+                    <p className="text-gray-600">Choose your subject and current knowledge level</p>
+                  </div>
 
-       <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
-         <CardContent className="p-8">
-           <div className="min-h-[400px]">
-             {/* Step 1: Learning Style */}
-             {currentStep === 1 && (
-               <div className="animate-fade-in space-y-6">
-                 <div className="text-center mb-8">
-                   <div className="text-6xl mb-4">🎯</div>
-                   <h3 className="text-2xl font-bold text-gray-900 mb-2">How do you learn best?</h3>
-                   <p className="text-gray-600">Choose the learning style that resonates with you most</p>
-                 </div>
+                  {/* Custom Subject Input */}
+                  <div>
+                    <Input
+                      label="Subject"
+                      name="subject"
+                      value={formData.subject}
+                      onChange={handleInputChange}
+                      placeholder="e.g., Physics, Chemistry, History, Programming, Photography, Cooking, etc."
+                      required
+                      error={errors.subject}
+                      className="text-lg py-4"
+                    />
+                    
+                    {formData.subject && (
+                      <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span className="text-blue-600">🤖</span>
+                          <span className="text-blue-800 font-medium">AI Assistant</span>
+                        </div>
+                        <p className="text-blue-700 text-sm">
+                          Great choice! I'll generate personalized focus areas and create custom assessments for <strong>{formData.subject}</strong> based on your learning style and knowledge level.
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
-                 <div className="grid md:grid-cols-2 gap-4">
-                   {learningStyleOptions.map((option) => (
-                     <label
-                       key={option.value}
-                       className={`relative p-6 border-2 rounded-2xl cursor-pointer transition-all duration-300 hover:shadow-lg ${
-                         formData.learning_style === option.value
-                           ? 'border-primary-600 bg-primary-50 shadow-lg'
-                           : 'border-gray-200 hover:border-primary-300'
-                       }`}
-                     >
-                       <input
-                         type="radio"
-                         name="learning_style"
-                         value={option.value}
-                         checked={formData.learning_style === option.value}
-                         onChange={handleInputChange}
-                         className="sr-only"
-                       />
-                       <div className="flex items-start space-x-4">
-                         <div className="text-3xl">{option.icon}</div>
-                         <div className="flex-1">
-                           <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                             {option.label}
-                           </h4>
-                           <p className="text-sm text-gray-600">
-                             {option.description}
-                           </p>
-                         </div>
-                       </div>
-                       {formData.learning_style === option.value && (
-                         <div className="absolute top-4 right-4 w-6 h-6 bg-primary-600 rounded-full flex items-center justify-center">
-                           <span className="text-white text-sm">✓</span>
-                         </div>
-                       )}
-                     </label>
-                   ))}
-                 </div>
-                 {errors.learning_style && (
-                   <p className="text-sm text-red-600 text-center">{errors.learning_style}</p>
-                 )}
-               </div>
-             )}
-
-             {/* Step 2: Subject and Knowledge Level */}
-             {currentStep === 2 && (
-               <div className="animate-fade-in space-y-8">
-                 <div className="text-center mb-8">
-                   <div className="text-6xl mb-4">📚</div>
-                   <h3 className="text-2xl font-bold text-gray-900 mb-2">What would you like to learn?</h3>
-                   <p className="text-gray-600">Choose your subject and current knowledge level</p>
-                 </div>
-
-                 {/* Custom Subject Input */}
-                 <div>
-                   <Input
-                     label="Subject"
-                     name="subject"
-                     value={formData.subject}
-                     onChange={handleInputChange}
-                     placeholder="e.g., Physics, Chemistry, History, Programming, Photography, Cooking, etc."
-                     required
-                     error={errors.subject}
-                     className="text-lg py-4"
-                   />
-                   
-                   {formData.subject && (
-                     <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                       <div className="flex items-center space-x-2 mb-2">
-                         <span className="text-blue-600">🤖</span>
-                         <span className="text-blue-800 font-medium">AI Assistant</span>
-                       </div>
-                       <p className="text-blue-700 text-sm">
-                         Great choice! I'll generate personalized focus areas and create custom assessments for <strong>{formData.subject}</strong> based on your learning style and knowledge level.
-                       </p>
-                     </div>
-                   )}
-                 </div>
-
-                 <div>
-                   <label className="block text-lg font-semibold text-gray-900 mb-4">
-                     Current Knowledge Level
-                   </label>
+                  <div>
+                    <label className="block text-lg font-semibold text-gray-900 mb-4">
+                      Current Knowledge Level
+                    </label>
                    <div className="bg-gray-50 rounded-xl p-6">
                      <input
                        type="range"
@@ -597,7 +581,7 @@ export default function CreateProfilePage() {
                variant="outline"
                onClick={currentStep === 1 ? () => router.push('/dashboard') : handlePrevious}
                className="px-6 py-3"
-               disabled={showLoader}
+               disabled={isLoading || showLoader}
              >
                {currentStep === 1 ? 'Back to Dashboard' : 'Previous'}
              </Button>
@@ -618,13 +602,13 @@ export default function CreateProfilePage() {
                    type="button"
                    onClick={handleSubmit}
                    loading={isLoading}
-                   disabled={showLoader}
+                   disabled={isLoading || showLoader}
                    className="px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed"
                  >
-                   {showLoader ? (
+                   {isLoading ? (
                      <>
                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                       Processing...
+                       Creating Profile...
                      </>
                    ) : (
                      'Create Profile & Start Assessment'

@@ -219,34 +219,66 @@ export default function PretestPage({ params }) {
               </div>
 
               <div className="flex justify-between pt-6">
-                <Button
-                  variant="secondary"
-                  onClick={handlePreviousQuestion}
-                  disabled={currentQuestion === 0}
-                >
-                  Previous
-                </Button>
+  <Button
+    variant="secondary"
+    onClick={handlePreviousQuestion}
+    disabled={currentQuestion === 0}
+    className="px-6 py-3 bg-gray-100 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+  >
+    <span className="flex items-center">
+      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+      </svg>
+      Previous
+    </span>
+  </Button>
 
-                <div className="flex space-x-3">
-                  {currentQuestion < pretest.questions.length - 1 ? (
-                    <Button
-                      onClick={handleNextQuestion}
-                      disabled={!currentAnswer}
-                    >
-                      Next Question
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={handleSubmit}
-                      loading={isSubmitting}
-                      disabled={answeredCount < pretest.questions.length}
-                      variant="success"
-                    >
-                      Complete Assessment
-                    </Button>
-                  )}
-                </div>
-              </div>
+  <div className="flex space-x-3">
+    {currentQuestion < pretest.questions.length - 1 ? (
+      <Button
+        onClick={handleNextQuestion}
+        disabled={!currentAnswer}
+        className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium"
+      >
+        <span className="flex items-center">
+          Next Question
+          <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </span>
+      </Button>
+    ) : (
+      <Button
+        onClick={handleSubmit}
+        loading={isSubmitting}
+        disabled={answeredCount < pretest.questions.length || isSubmitting}
+        className={`px-8 py-3 rounded-lg font-medium transition-all duration-200 ${
+          isSubmitting 
+            ? 'bg-green-400 text-white cursor-not-allowed' 
+            : answeredCount < pretest.questions.length
+            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            : 'bg-green-600 text-white hover:bg-green-700'
+        }`}
+      >
+        <span className="flex items-center">
+          {isSubmitting ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+              Submitting...
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Complete Assessment
+            </>
+          )}
+        </span>
+      </Button>
+    )}
+  </div>
+</div>
             </div>
           </CardContent>
         </Card>
