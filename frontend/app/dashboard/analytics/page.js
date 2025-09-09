@@ -12,14 +12,14 @@ export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState({
     learningProgress: {
       totalTimeSpent: 45,
-      lessonsCompleted: 12,
-      quizzesCompleted: 8,
+      pathsGenerated: 12,
+      assessmentsCompleted: 8,
       averageScore: 87
     },
     subjectBreakdown: [
-      { subject: 'Mathematics', progress: 75, time: 20 },
-      { subject: 'Physics', progress: 45, time: 15 },
-      { subject: 'Chemistry', progress: 30, time: 10 }
+      { subject: 'Machine Learning', progress: 75, time: 20 },
+      { subject: 'Web Development', progress: 45, time: 15 },
+      { subject: 'Data Science', progress: 30, time: 10 }
     ],
     weeklyActivity: [
       { day: 'Mon', hours: 2.5 },
@@ -64,15 +64,15 @@ export default function AnalyticsPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+          <Card className="bg-gradient-to-br from-brand-50 to-brand-100 border-brand-200">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-green-600">Lessons Done</p>
-                  <p className="text-3xl font-bold text-green-900">{analytics.learningProgress.lessonsCompleted}</p>
+                  <p className="text-sm font-medium text-brand-600">Learning Paths</p>
+                  <p className="text-3xl font-bold text-brand-900">{analytics.learningProgress.pathsGenerated}</p>
                 </div>
-                <div className="h-12 w-12 bg-green-500 rounded-lg flex items-center justify-center">
-                  <span className="text-2xl">📚</span>
+                <div className="h-12 w-12 bg-brand-500 rounded-lg flex items-center justify-center">
+                  <span className="text-2xl">🎓</span>
                 </div>
               </div>
             </CardContent>
@@ -82,8 +82,8 @@ export default function AnalyticsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-purple-600">Quizzes</p>
-                  <p className="text-3xl font-bold text-purple-900">{analytics.learningProgress.quizzesCompleted}</p>
+                  <p className="text-sm font-medium text-purple-600">Assessments</p>
+                  <p className="text-3xl font-bold text-purple-900">{analytics.learningProgress.assessmentsCompleted}</p>
                 </div>
                 <div className="h-12 w-12 bg-purple-500 rounded-lg flex items-center justify-center">
                   <span className="text-2xl">📝</span>
@@ -123,7 +123,7 @@ export default function AnalyticsPage() {
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-3">
                       <div 
-                        className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500"
+                        className="bg-gradient-to-r from-brand-500 to-brand-600 h-3 rounded-full transition-all duration-500"
                         style={{ width: `${subject.progress}%` }}
                       ></div>
                     </div>
@@ -202,35 +202,35 @@ export default function AnalyticsPage() {
         </div>
 
         {/* AI Recommendations */}
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
-          <CardHeader className="border-b border-blue-200">
-            <h3 className="text-lg font-semibold text-blue-900 flex items-center">
-              <span className="text-blue-500 mr-2">🤖</span>
+        <Card className="bg-gradient-to-r from-brand-50 to-purple-50 border border-brand-200">
+          <CardHeader className="border-b border-brand-200">
+            <h3 className="text-lg font-semibold text-brand-900 flex items-center">
+              <span className="text-brand-500 mr-2">🤖</span>
               AI Recommendations
             </h3>
           </CardHeader>
           <CardContent className="p-6">
             <div className="space-y-4">
-              <div className="p-4 bg-white rounded-lg border border-blue-200">
-                <h4 className="font-semibold text-blue-900 mb-2">📈 Study Schedule</h4>
-                <p className="text-blue-800">
-                  Based on your activity pattern, consider studying Physics on weekends when you're most active. 
+              <div className="p-4 bg-white rounded-lg border border-brand-200">
+                <h4 className="font-semibold text-brand-900 mb-2">📈 Study Schedule</h4>
+                <p className="text-brand-800">
+                  Based on your activity pattern, consider generating new learning paths on weekends when you're most active. 
                   Your Saturday sessions are 2x more productive than weekdays.
                 </p>
               </div>
               
-              <div className="p-4 bg-white rounded-lg border border-blue-200">
-                <h4 className="font-semibold text-blue-900 mb-2">🎯 Focus Areas</h4>
-                <p className="text-blue-800">
-                  Your quiz performance shows strong visual learning. Consider more diagram-based resources 
-                  for Chemistry topics where you scored below 70%.
+              <div className="p-4 bg-white rounded-lg border border-brand-200">
+                <h4 className="font-semibold text-brand-900 mb-2">🎯 Focus Areas</h4>
+                <p className="text-brand-800">
+                  Your assessment performance shows strong visual learning. Consider generating more diagram-based resources 
+                  for topics where you scored below 70%.
                 </p>
               </div>
               
-              <div className="p-4 bg-white rounded-lg border border-blue-200">
-                <h4 className="font-semibold text-blue-900 mb-2">⏰ Time Management</h4>
-                <p className="text-blue-800">
-                  You learn best in 2-3 hour sessions. Break down complex topics into smaller chunks 
+              <div className="p-4 bg-white rounded-lg border border-brand-200">
+                <h4 className="font-semibold text-brand-900 mb-2">⏰ Time Management</h4>
+                <p className="text-brand-800">
+                  You learn best in 2-3 hour sessions. Generate learning paths with smaller chunks 
                   and take 15-minute breaks every hour for optimal retention.
                 </p>
               </div>
