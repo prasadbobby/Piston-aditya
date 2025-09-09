@@ -169,34 +169,19 @@ class EnhancedContentGeneratorAgent:
                     # Initial delay to prevent rate limiting
                     time.sleep(2)
                 
-                prompt = f"""{self.system_context}
+                prompt = f"""Create exactly {count} multiple choice questions about "{topic}" at difficulty level {difficulty} out of 5.
 
-TASK: Create exactly {count} multiple choice questions about "{topic}" at difficulty level {difficulty} out of 5.
+Return ONLY a valid JSON array. Each question must have exactly 4 options.
 
-REQUIREMENTS:
-- Each question must have exactly 4 options
-- Difficulty level {difficulty}/5 where 1=beginner, 5=expert
-- Focus ONLY on {topic}
-- Return ONLY valid JSON format
-- Make questions educational and accurate
-- Ensure one clear correct answer per question
+Example format:
+[{{"question": "What is X?", "options": ["Option A", "Option B", "Option C", "Option D"], "correct_answer": "Option A", "topic": "{topic}"}}]
 
-FORMAT:
-[
-{{
-    "question": "Question about {topic}",
-    "options": ["Correct answer", "Wrong option 1", "Wrong option 2", "Wrong option 3"],
-    "correct_answer": "Correct answer",
-    "topic": "{topic}"
-}}
-]
-
-Return ONLY the JSON array without any markdown formatting:"""
+Generate {count} questions for {topic} now. Return ONLY the JSON array:"""
                 
                 response_text = self.gemini.generate(prompt, max_tokens=2048)
                 
                 if response_text:
-                    json_content = self._clean_json_response(response_text)
+                    json_content = self._robust_json_extraction(response_text)
                     questions_data = json.loads(json_content)
                     
                     if isinstance(questions_data, list) and len(questions_data) >= count:
@@ -235,28 +220,19 @@ Return ONLY the JSON array without any markdown formatting:"""
         
         raise Exception("Failed to generate valid questions after all retry attempts")
     
-# backend/agents/enhanced_content_generator.py
-# Update the _generate_ai_focus_areas method with better error handling
-
     def _generate_ai_focus_areas(self, subject: str) -> List[str]:
         """Generate focus areas using AI with robust JSON handling"""
         
         try:
             time.sleep(3)  # Rate limiting
             
-            prompt = f"""Generate exactly 6-8 key focus areas for the subject "{subject}".
+            prompt = f"""Generate exactly 6 key focus areas for the subject "{subject}".
 
-    IMPORTANT REQUIREMENTS:
-    - Return ONLY a valid JSON array of strings
-    - Each area should be 1-3 words maximum
-    - Make areas specific to {subject}
-    - Use simple, clear terminology
-    - No special characters or escape sequences
+Return ONLY a JSON array of strings. Each area should be 1-3 words.
 
-    EXAMPLE FORMAT:
-    ["area1", "area2", "area3", "area4", "area5", "area6"]
+Example: ["area1", "area2", "area3", "area4", "area5", "area6"]
 
-    Generate focus areas for "{subject}" now. Return ONLY the JSON array:"""
+Generate focus areas for "{subject}" now. Return ONLY the JSON array:"""
             
             response = self.gemini.generate(prompt, max_tokens=300)
             
@@ -264,7 +240,7 @@ Return ONLY the JSON array without any markdown formatting:"""
                 print(f"🔍 Raw focus areas response: {response[:200]}...")
                 
                 # Clean and extract JSON with robust handling
-                cleaned_response = self._clean_focus_areas_response(response)
+                cleaned_response = self._robust_json_extraction(response)
                 print(f"🧹 Cleaned response: {cleaned_response}")
                 
                 areas = json.loads(cleaned_response)
@@ -294,65 +270,102 @@ Return ONLY the JSON array without any markdown formatting:"""
             print(f"❌ AI focus area generation failed: {e}")
             raise Exception(f"AI focus area generation failed: {e}")
 
-    def _clean_focus_areas_response(self, response: str) -> str:
-        """Clean focus areas response with specialized handling"""
+    def _robust_json_extraction(self, response: str) -> str:
+        """Robust JSON extraction with comprehensive cleanup"""
         
-        if not response:
+        if not response or not response.strip():
             raise ValueError("Empty response")
         
-        # Remove any markdown
+        print(f"🔍 Original response length: {len(response)}")
+        
+        # Remove markdown formatting
         response = re.sub(r'```json\s*', '', response, flags=re.IGNORECASE)
         response = re.sub(r'```\s*', '', response)
         response = response.strip()
         
-        # Find the JSON array
-        start_idx = response.find('[')
-        end_idx = response.rfind(']')
+        # Find JSON array or object
+        json_start = -1
+        json_end = -1
         
-        if start_idx == -1 or end_idx == -1:
-            raise ValueError("No JSON array found in response")
+        # Look for array first
+        array_start = response.find('[')
+        array_end = response.rfind(']')
         
-        json_str = response[start_idx:end_idx + 1]
+        # Look for object
+        obj_start = response.find('{')
+        obj_end = response.rfind('}')
         
-        # Aggressive cleaning for focus areas
-        json_str = self._aggressive_json_clean(json_str)
+        # Prefer array over object
+        if array_start != -1 and array_end != -1 and array_start < array_end:
+            json_start = array_start
+            json_end = array_end + 1
+        elif obj_start != -1 and obj_end != -1 and obj_start < obj_end:
+            json_start = obj_start
+            json_end = obj_end + 1
+        else:
+            raise ValueError("No valid JSON structure found")
         
-        return json_str
-
-    def _aggressive_json_clean(self, json_str: str) -> str:
-        """Aggressively clean JSON string for focus areas"""
+        json_content = response[json_start:json_end]
         
-        # Replace all invalid escape sequences with the character itself
-        # This is more aggressive than the previous method
-        def fix_escape(match):
-            full_match = match.group(0)
-            char = match.group(1)
-            
-            # Only keep valid JSON escapes
-            if char in '"\\/:bfnrt':
-                return full_match
-            elif char == 'u':
-                return full_match  # Unicode escape
-            else:
-                return char  # Remove the backslash
+        # Comprehensive cleanup
+        json_content = self._comprehensive_json_cleanup(json_content)
         
-        json_str = re.sub(r'\\(.)', fix_escape, json_str)
+        print(f"🧹 Final JSON length: {len(json_content)}")
+        return json_content
+    
+    def _comprehensive_json_cleanup(self, content: str) -> str:
+        """Comprehensive JSON cleanup to handle all escape issues"""
         
-        # Fix newlines and control characters
-        json_str = json_str.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+        # Step 1: Remove control characters except \n, \r, \t
+        content = ''.join(char for char in content if ord(char) >= 32 or char in '\n\r\t')
         
-        # Remove any remaining control characters
-        json_str = ''.join(char for char in json_str if ord(char) >= 32 or char.isspace())
+        # Step 2: Fix escape sequences - only keep valid JSON escapes
+        # Valid JSON escapes: \" \\ \/ \b \f \n \r \t \uXXXX
+        def fix_escapes(text):
+            # Replace problematic escapes with the character itself
+            # Keep only valid JSON escape sequences
+            result = ""
+            i = 0
+            while i < len(text):
+                if text[i] == '\\' and i + 1 < len(text):
+                    next_char = text[i + 1]
+                    if next_char in '"\\/:bfnrt':
+                        # Valid escape, keep it
+                        result += text[i:i+2]
+                        i += 2
+                    elif next_char == 'u' and i + 5 < len(text):
+                        # Unicode escape, keep it
+                        result += text[i:i+6]
+                        i += 6
+                    else:
+                        # Invalid escape, just add the character
+                        result += next_char
+                        i += 2
+                else:
+                    result += text[i]
+                    i += 1
+            return result
         
-        # Fix multiple spaces
-        json_str = re.sub(r'\s+', ' ', json_str)
+        content = fix_escapes(content)
         
-        # Remove trailing commas
-        json_str = re.sub(r',\s*]', ']', json_str)
+        # Step 3: Handle actual newlines in string values
+        # Split by quotes to identify string values vs structure
+        parts = content.split('"')
+        for i in range(1, len(parts), 2):  # Every odd index is inside quotes
+            # Replace actual newlines with escaped newlines
+            parts[i] = parts[i].replace('\n', '\\n')
+            parts[i] = parts[i].replace('\r', '\\r')
+            parts[i] = parts[i].replace('\t', '\\t')
         
-        return json_str.strip()
-
-
+        content = '"'.join(parts)
+        
+        # Step 4: Fix trailing commas
+        content = re.sub(r',(\s*[}\]])', r'\1', content)
+        
+        # Step 5: Clean up whitespace
+        content = re.sub(r'\s+', ' ', content)
+        
+        return content.strip()
 
     def _convert_to_quiz_questions(self, cached_questions: List[Dict], topic: str, difficulty: int) -> List[QuizQuestion]:
         """Convert cached questions to QuizQuestion objects"""
@@ -383,90 +396,3 @@ Return ONLY the JSON array without any markdown formatting:"""
             'difficulty_level': question.difficulty_level,
             'resource_id': question.resource_id
         }
-    
-    def _clean_json_response(self, response_text: str) -> str:
-        """Clean JSON response from AI with robust escape character handling"""
-        
-        if not response_text:
-            raise ValueError("Empty response text")
-        
-        # Remove markdown
-        response_text = re.sub(r'```json\s*', '', response_text, flags=re.IGNORECASE)
-        response_text = re.sub(r'```\s*', '', response_text)
-        response_text = response_text.strip()
-        
-        # Fix common JSON escape issues BEFORE parsing
-        response_text = self._fix_json_escapes(response_text)
-        
-        # Find JSON boundaries
-        start_idx = response_text.find('[')
-        end_idx = response_text.rfind(']')
-        
-        if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
-            json_content = response_text[start_idx:end_idx + 1]
-            
-            # Additional cleaning for the extracted JSON
-            json_content = self._sanitize_json_content(json_content)
-            
-            return json_content
-        
-        raise ValueError("No valid JSON found")
-    
-    def _fix_json_escapes(self, text: str) -> str:
-        """Fix invalid escape sequences in JSON"""
-        
-        # Fix invalid escape sequences
-        # Replace \' with ' (single quotes don't need escaping in JSON)
-        text = text.replace("\\'", "'")
-        
-        # Fix double backslashes that shouldn't be there
-        text = re.sub(r'\\\\(?!["\\/bfnrt])', '\\', text)
-        
-        # Fix invalid escapes like \a, \c, \d, etc. (keep only valid JSON escapes)
-        # Valid JSON escapes: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
-        def fix_invalid_escape(match):
-            char = match.group(1)
-            if char in '"\\/:bfnrt':
-                return match.group(0)  # Keep valid escapes
-            elif char == 'u' and len(match.group(0)) >= 6:
-                return match.group(0)  # Keep unicode escapes
-            else:
-                return char  # Remove the backslash for invalid escapes
-        
-        text = re.sub(r'\\(.)', fix_invalid_escape, text)
-        
-        # Fix newlines and tabs within string values
-        text = self._fix_newlines_in_strings(text)
-        
-        return text
-    
-    def _fix_newlines_in_strings(self, text: str) -> str:
-        """Fix actual newlines and tabs within JSON string values"""
-        
-        # This regex finds content within quotes and fixes newlines/tabs
-        def fix_string_content(match):
-            content = match.group(1)
-            # Replace actual newlines with \n
-            content = content.replace('\n', '\\n')
-            content = content.replace('\r', '\\r')
-            content = content.replace('\t', '\\t')
-            return f'"{content}"'
-        
-        # Find all quoted strings and fix their content
-        text = re.sub(r'"([^"]*)"', fix_string_content, text)
-        
-        return text
-    
-    def _sanitize_json_content(self, json_content: str) -> str:
-        """Additional sanitization for JSON content"""
-        
-        # Remove any trailing commas before closing brackets/braces
-        json_content = re.sub(r',\s*([}\]])', r'\1', json_content)
-        
-        # Fix any remaining control characters
-        json_content = ''.join(char for char in json_content if ord(char) >= 32 or char in '\t\n\r')
-        
-        # Ensure proper spacing around JSON elements
-        json_content = re.sub(r'\s+', ' ', json_content)
-        
-        return json_content

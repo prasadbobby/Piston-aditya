@@ -75,32 +75,19 @@ class LearningContentGenerator:
         try:
             prompt = f"""Create educational content about "{topic}" for a {learning_style} learner.
 
-    REQUIREMENTS: Return ONLY a valid JSON object with this exact structure:
+Return ONLY a valid JSON object with this structure:
+{{"title": "Brief title", "content": "Educational content", "summary": "Brief summary", "learning_objectives": ["objective1", "objective2"], "estimated_duration": 20}}
 
-    {{
-    "title": "string",
-    "content": "string", 
-    "summary": "string",
-    "learning_objectives": ["string1", "string2", "string3"],
-    "estimated_duration": 20
-    }}
+Topic: {topic}
+Difficulty: {difficulty}/5
+Position: {sequence_position} of {total_sequence}
 
-    Topic: {topic}
-    Learning Style: {learning_style}
-    Difficulty: {difficulty}/5
-    Position: {sequence_position} of {total_sequence}
-
-    IMPORTANT: 
-    - Return ONLY the JSON object
-    - Use double quotes for all strings
-    - No markdown, no backticks, no extra text
-    - Keep content simple and clean
-    - Estimated duration should be a number"""
+Generate the JSON object now:"""
 
             response = self.gemini.generate(prompt, max_tokens=3000)
             
             # Clean and parse JSON response
-            json_content = self._extract_json_from_response(response)
+            json_content = self._robust_extract_json(response)
             
             if json_content:
                 try:
@@ -144,10 +131,10 @@ class LearningContentGenerator:
             print(f"❌ Error generating content for {topic}: {e}")
             raise Exception(f"Failed to generate content for {topic}: {e}")
 
-    def _extract_json_from_response(self, response: str) -> str:
-        """Extract JSON from Gemini response with robust error handling"""
+    def _robust_extract_json(self, response: str) -> str:
+        """Robust JSON extraction with comprehensive cleanup"""
         
-        if not response:
+        if not response or not response.strip():
             return None
         
         # Remove markdown code blocks
@@ -155,86 +142,77 @@ class LearningContentGenerator:
         response = re.sub(r'```\s*', '', response)
         response = response.strip()
         
-        # Find JSON object boundaries
+        # Find JSON object boundaries using brace matching
         start_idx = response.find('{')
-        end_idx = response.rfind('}')
+        if start_idx == -1:
+            return None
         
-        if start_idx == -1 or end_idx == -1 or start_idx >= end_idx:
+        # Find matching closing brace
+        brace_count = 0
+        end_idx = -1
+        
+        for i in range(start_idx, len(response)):
+            if response[i] == '{':
+                brace_count += 1
+            elif response[i] == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    end_idx = i
+                    break
+        
+        if end_idx == -1:
             return None
         
         json_content = response[start_idx:end_idx + 1]
         
-        # Fix the JSON content with robust escape handling
-        json_content = self._fix_json_content_robust(json_content)
+        # Comprehensive cleanup
+        json_content = self._comprehensive_json_fix(json_content)
         
         return json_content
     
-    def _fix_json_content_robust(self, content: str) -> str:
-        """Robust JSON fixing with escape character handling"""
+    def _comprehensive_json_fix(self, content: str) -> str:
+        """Comprehensive JSON fixing with escape character handling"""
         
-        # Fix invalid escape sequences
-        content = content.replace("\\'", "'")  # Single quotes don't need escaping
+        # Remove control characters except essential ones
+        content = ''.join(char for char in content if ord(char) >= 32 or char in '\n\r\t')
         
-        # Fix common invalid escapes
-        invalid_escapes = ['\\a', '\\c', '\\d', '\\e', '\\g', '\\h', '\\i', '\\j', '\\k', '\\l', '\\m', '\\o', '\\p', '\\q', '\\s', '\\v', '\\w', '\\x', '\\y', '\\z']
-        for invalid in invalid_escapes:
-            content = content.replace(invalid, invalid[1])  # Remove the backslash
+        # Fix escape sequences systematically
+        def clean_escapes(text):
+            result = ""
+            i = 0
+            while i < len(text):
+                if text[i] == '\\' and i + 1 < len(text):
+                    next_char = text[i + 1]
+                    # Only keep valid JSON escape sequences
+                    if next_char in '"\\/:bfnrt':
+                        result += text[i:i+2]
+                        i += 2
+                    elif next_char == 'u' and i + 5 < len(text) and all(c in '0123456789abcdefABCDEF' for c in text[i+2:i+6]):
+                        result += text[i:i+6]
+                        i += 6
+                    else:
+                        # Invalid escape, just add the character
+                        result += next_char
+                        i += 2
+                else:
+                    result += text[i]
+                    i += 1
+            return result
         
-        # Fix newlines and other control characters within strings
-        def fix_string_content(match):
-            string_content = match.group(1)
-            # Replace actual newlines with \n
-            string_content = string_content.replace('\n', '\\n')
-            string_content = string_content.replace('\r', '\\r')
-            string_content = string_content.replace('\t', '\\t')
-            return f'"{string_content}"'
+        content = clean_escapes(content)
         
-        # Apply to quoted strings
-        content = re.sub(r'"([^"]*)"', fix_string_content, content)
+        # Handle newlines within string values
+        # Split on quotes and only process content inside quotes
+        parts = content.split('"')
+        for i in range(1, len(parts), 2):  # Odd indices are string content
+            parts[i] = parts[i].replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
         
-        # Remove trailing commas
-        content = re.sub(r',\s*([}\]])', r'\1', content)
+        content = '"'.join(parts)
         
-        # Clean up whitespace
+        # Remove trailing commas before closing brackets/braces
+        content = re.sub(r',(\s*[}\]])', r'\1', content)
+        
+        # Clean up excessive whitespace
         content = re.sub(r'\s+', ' ', content)
         
         return content.strip()
-    
-    def _sanitize_json_content(self, content: str) -> str:
-        """Sanitize JSON content to prevent parsing errors"""
-        
-        # Replace problematic characters
-        content = content.replace('\n', '\\n')
-        content = content.replace('\r', '\\r')
-        content = content.replace('\t', '\\t')
-        content = content.replace('\b', '\\b')
-        content = content.replace('\f', '\\f')
-        
-        # Fix unescaped quotes in string values
-        lines = content.split('\n')
-        fixed_lines = []
-        
-        for line in lines:
-            if ':' in line and '"' in line:
-                # Simple approach to fix quotes in JSON values
-                parts = line.split(':', 1)
-                if len(parts) == 2:
-                    key_part = parts[0]
-                    value_part = parts[1].strip()
-                    
-                    # If it's a string value, escape internal quotes
-                    if value_part.startswith('"') and not value_part.endswith('",') and not value_part.endswith('"'):
-                        # Find the closing quote
-                        closing_quote_idx = value_part.rfind('"')
-                        if closing_quote_idx > 0:
-                            string_content = value_part[1:closing_quote_idx]
-                            rest = value_part[closing_quote_idx:]
-                            # Escape quotes in the string content
-                            string_content = string_content.replace('"', '\\"')
-                            value_part = f'"{string_content}"{rest}'
-                    
-                    line = f"{key_part}:{value_part}"
-            
-            fixed_lines.append(line)
-        
-        return '\n'.join(fixed_lines)

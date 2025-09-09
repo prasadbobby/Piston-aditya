@@ -1,10 +1,55 @@
 // frontend/lib/auth.js
-import { apiClient } from './api';
+import { auth, signInWithGoogle, signOutUser, onAuthStateChange } from './firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
-export const AUTH_TOKEN_KEY = 'auth_token';
-export const USER_DATA_KEY = 'user_data';
+export const AUTH_TOKEN_KEY = 'firebase_auth_token';
+export const USER_DATA_KEY = 'firebase_user_data';
+
+// Get admin emails from environment
+const getAdminEmails = () => {
+  const adminEmails = process.env.NEXT_PUBLIC_ADMIN_EMAILS || '';
+  return adminEmails.split(',').map(email => email.trim()).filter(Boolean);
+};
+
+// Check if user is admin
+const isAdminEmail = (email) => {
+  const adminEmails = getAdminEmails();
+  return adminEmails.includes(email);
+};
+
+// Determine user role based on email
+const getUserRole = (email) => {
+  if (isAdminEmail(email)) {
+    return 'admin';
+  }
+  return 'student'; // Default role
+};
 
 export const authService = {
+  // Initialize auth state listener
+  initAuthListener: (callback) => {
+    return onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        const userData = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          name: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL,
+          role: getUserRole(firebaseUser.email),
+          isAdmin: isAdminEmail(firebaseUser.email),
+          emailVerified: firebaseUser.emailVerified
+        };
+        
+        // Store in localStorage
+        authService.setAuthData(firebaseUser.accessToken, userData);
+        callback(userData);
+      } else {
+        authService.clearAuth();
+        callback(null);
+      }
+    });
+  },
+
   // Store token and user data
   setAuthData: (token, user) => {
     if (typeof window !== 'undefined') {
@@ -40,15 +85,14 @@ export const authService = {
 
   // Check if user is authenticated
   isAuthenticated: () => {
-    const token = authService.getToken();
     const user = authService.getUser();
-    return !!(token && user);
+    return !!(user && auth.currentUser);
   },
 
   // Check if user is admin
   isAdmin: () => {
     const user = authService.getUser();
-    return user && user.role === 'admin';
+    return user && user.isAdmin === true;
   },
 
   // Check if user is student
@@ -58,42 +102,75 @@ export const authService = {
   },
 
   // Google OAuth login
-  googleLogin: async (googleToken) => {
+  googleLogin: async () => {
     try {
-      const response = await apiClient.googleAuth(googleToken);
-      if (response.success) {
-        authService.setAuthData(response.token, response.user);
-        return response;
-      }
-      throw new Error(response.error || 'Google login failed');
+      console.log('🔐 Starting Google sign-in...');
+      const result = await signInWithGoogle();
+      const firebaseUser = result.user;
+      
+      console.log('✅ Firebase user signed in:', firebaseUser.email);
+      
+      const userData = {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        name: firebaseUser.displayName,
+        photoURL: firebaseUser.photoURL,
+        role: getUserRole(firebaseUser.email),
+        isAdmin: isAdminEmail(firebaseUser.email),
+        emailVerified: firebaseUser.emailVerified
+      };
+      
+      // Get ID token for backend if needed
+      const idToken = await firebaseUser.getIdToken();
+      
+      // Store auth data
+      authService.setAuthData(idToken, userData);
+      
+      console.log('🎉 Login successful:', userData);
+      return { success: true, user: userData, token: idToken };
+      
     } catch (error) {
-      throw error;
+      console.error('❌ Google login error:', error);
+      
+      // Handle specific error cases
+      if (error.code === 'auth/popup-closed-by-user') {
+        throw new Error('Sign-in was cancelled. Please try again.');
+      } else if (error.code === 'auth/popup-blocked') {
+        throw new Error('Pop-up was blocked by your browser. Please allow pop-ups and try again.');
+      } else if (error.code === 'auth/network-request-failed') {
+        throw new Error('Network error. Please check your internet connection.');
+      } else {
+        throw new Error(error.message || 'Sign-in failed. Please try again.');
+      }
     }
   },
 
   // Logout
   logout: async () => {
     try {
-      await apiClient.logout();
+      console.log('🔐 Signing out...');
+      await signOutUser();
+      authService.clearAuth();
+      console.log('✅ Logout successful');
     } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
+      console.error('❌ Logout error:', error);
+      // Clear local data even if Firebase logout fails
       authService.clearAuth();
     }
   },
 
-  // Verify token
-  verifyToken: async () => {
-    try {
-      const response = await apiClient.verifyToken();
-      if (response.success) {
-        authService.setAuthData(authService.getToken(), response.user);
-        return response;
-      }
-      throw new Error('Token verification failed');
-    } catch (error) {
-      authService.clearAuth();
-      throw error;
-    }
+  // Get current Firebase user
+  getCurrentUser: () => {
+    return auth.currentUser;
+  },
+
+  // Check if email is admin
+  checkIsAdmin: (email) => {
+    return isAdminEmail(email);
+  },
+
+  // Get admin emails list
+  getAdminEmails: () => {
+    return getAdminEmails();
   }
 };

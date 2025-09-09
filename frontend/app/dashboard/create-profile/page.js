@@ -1,0 +1,671 @@
+'use client';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../../../lib/AuthContext';
+import DashboardLayout from '../../../components/layout/DashboardLayout';
+import Card, { CardContent, CardHeader } from '../../../components/ui/Card';
+import Button from '../../../components/ui/Button';
+import Input from '../../../components/ui/Input';
+import ProfileCreationLoader from '../../../components/ui/ProfileCreationLoader';
+import { apiClient } from '../../../lib/api';
+import { validateRequired } from '../../../lib/utils';
+import toast from 'react-hot-toast';
+
+export default function CreateProfilePage() {
+  const router = useRouter();
+  const { user, isAuthenticated, loading } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingFocusAreas, setIsGeneratingFocusAreas] = useState(false);
+  const [profileId, setProfileId] = useState(null);
+  const [showLoader, setShowLoader] = useState(false); 
+  const [currentStep, setCurrentStep] = useState(1);
+  const [formData, setFormData] = useState({
+    name: '',
+    learning_style: '',
+    subject: '', // This will be the custom subject
+    knowledge_level: 1,
+    weak_areas: []
+  });
+  const [customFocusAreas, setCustomFocusAreas] = useState([]);
+  const [errors, setErrors] = useState({});
+
+  const learningStyleOptions = [
+    { 
+      value: 'visual', 
+      label: 'Visual Learner',
+      description: 'Learn best through images, diagrams, and visual content',
+      icon: '👁️'
+    },
+    { 
+      value: 'auditory', 
+      label: 'Auditory Learner',
+      description: 'Learn best through listening and verbal instruction',
+      icon: '👂'
+    },
+    { 
+      value: 'reading', 
+      label: 'Reading/Writing',
+      description: 'Learn best through text-based content and writing',
+      icon: '📚'
+    },
+    { 
+      value: 'kinesthetic', 
+      label: 'Kinesthetic Learner',
+      description: 'Learn best through hands-on activities and practice',
+      icon: '🤲'
+    }
+  ];
+
+  const steps = [
+    { id: 1, title: 'Basic Info', icon: '👤' },
+    { id: 2, title: 'Learning Style', icon: '🎯' },
+    { id: 3, title: 'Subject & Level', icon: '📚' },
+    { id: 4, title: 'Focus Areas', icon: '🎪' }
+  ];
+
+  useEffect(() => {
+    if (!loading) {
+      if (!isAuthenticated) {
+        router.push('/login');
+        return;
+      }
+      // Pre-fill name from user profile
+      if (user?.name) {
+        setFormData(prev => ({ ...prev, name: user.name }));
+      }
+    }
+  }, [isAuthenticated, user, loading, router]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    const processedValue = name === 'knowledge_level' ? parseInt(value, 10) : value;
+    
+    setFormData(prev => ({
+      ...prev,
+      [name]: processedValue
+    }));
+    
+    // Clear related errors
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+
+    // If subject changes, clear weak areas and focus areas
+    if (name === 'subject') {
+      setFormData(prev => ({
+        ...prev,
+        weak_areas: []
+      }));
+      setCustomFocusAreas([]);
+    }
+  };
+
+  const generateCustomFocusAreas = async () => {
+    if (!formData.subject.trim()) {
+      toast.error('Please enter a subject first');
+      return;
+    }
+
+    setIsGeneratingFocusAreas(true);
+    try {
+      console.log('Generating focus areas for:', formData.subject);
+      
+      const response = await apiClient.generateCustomFocusAreas(formData.subject);
+      
+      if (response.success && response.focus_areas) {
+        setCustomFocusAreas(response.focus_areas);
+        toast.success(`Generated ${response.focus_areas.length} focus areas for ${formData.subject}`);
+      } else {
+        throw new Error(response.error || 'Failed to generate focus areas');
+      }
+    } catch (error) {
+      console.error('Error generating focus areas:', error);
+      toast.error('Failed to generate focus areas. Please try again.');
+    } finally {
+      setIsGeneratingFocusAreas(false);
+    }
+  };
+
+  const handleWeakAreaChange = (area) => {
+    setFormData(prev => ({
+      ...prev,
+      weak_areas: prev.weak_areas.includes(area)
+        ? prev.weak_areas.filter(item => item !== area)
+        : [...prev.weak_areas, area]
+    }));
+  };
+
+  const validateStep = (step) => {
+    const newErrors = {};
+
+    switch (step) {
+      case 1:
+        if (!validateRequired(formData.name)) {
+          newErrors.name = 'Name is required';
+        }
+        break;
+      case 2:
+        if (!validateRequired(formData.learning_style)) {
+          newErrors.learning_style = 'Learning style is required';
+        }
+        break;
+      case 3:
+        if (!validateRequired(formData.subject)) {
+          newErrors.subject = 'Subject is required';
+        }
+        if (!formData.knowledge_level || formData.knowledge_level < 1 || formData.knowledge_level > 5) {
+          newErrors.knowledge_level = 'Knowledge level must be between 1 and 5';
+        }
+        break;
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      // If moving to step 4, generate focus areas automatically if none exist
+      if (currentStep === 3 && customFocusAreas.length === 0 && formData.subject.trim()) {
+        generateCustomFocusAreas();
+      }
+      setCurrentStep(prev => Math.min(prev + 1, 4));
+    } else {
+      toast.error('Please fill in all required fields');
+    }
+  };
+
+  const handlePrevious = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
+
+  const handleSubmit = async () => {
+    if (!validateStep(3)) {
+      toast.error('Please complete all required fields');
+      return;
+    }
+
+    setIsLoading(true);
+    setShowLoader(true);
+
+    try {
+      console.log('Submitting form data:', formData);
+      
+      const submissionData = {
+        ...formData,
+        custom_subject: formData.subject,
+        user_id: user?.uid,
+        created_by: user?.email
+      };
+      
+      const response = await apiClient.createLearner(submissionData);
+      console.log('Create learner response:', response);
+      
+      if (response.success) {
+        // Store the profile ID for the loader
+        setProfileId(response.data.profile_id);
+        
+        // Save to history
+        const historyItem = {
+          id: response.data.profile_id,
+          type: 'profile_created',
+          title: `${formData.subject} Learning Profile`,
+          subject: formData.subject,
+          learning_style: formData.learning_style,
+          knowledge_level: formData.knowledge_level,
+          weak_areas: formData.weak_areas,
+          created_at: new Date().toISOString(),
+          status: 'completed',
+          icon: '👤',
+          description: `Created ${formData.learning_style} learning profile for ${formData.subject}`,
+          result: {
+            profile_id: response.data.profile_id,
+            total_resources: response.data.total_resources || 0
+          }
+        };
+        
+        const existingHistory = JSON.parse(localStorage.getItem(`user_history_${user?.uid}`) || '[]');
+        existingHistory.unshift(historyItem);
+        localStorage.setItem(`user_history_${user?.uid}`, JSON.stringify(existingHistory));
+        
+        return response;
+      } else {
+        setShowLoader(false);
+        throw new Error(response.error || 'Failed to create profile');
+      }
+    } catch (error) {
+      console.error('Error creating profile:', error);
+      setShowLoader(false);
+      toast.error(error.message || 'Failed to create profile');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLoaderComplete = async () => {
+    // This gets called when the loader animation finishes
+    setShowLoader(false);
+    
+    try {
+      // Re-submit to get the response
+      const submissionData = {
+        ...formData,
+        custom_subject: formData.subject,
+        user_id: user?.uid,
+        created_by: user?.email
+      };
+      
+      const response = await apiClient.createLearner(submissionData);
+      
+      if (response.success) {
+        toast.success('Profile created successfully!');
+        
+        if (response.data.status === 'generating_content') {
+          toast.success('AI is generating your personalized content in the background!');
+        }
+        
+        router.push(`/pretest/${response.data.profile_id}`);
+      }
+    } catch (error) {
+      toast.error('Something went wrong. Please try again.');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  return (
+  <DashboardLayout title="Create Learning Profile">
+    <ProfileCreationLoader 
+      isVisible={showLoader} 
+      onComplete={handleLoaderComplete}
+      profileId={profileId}
+    />
+    
+    <div className="max-w-4xl mx-auto">
+      <div className="text-center mb-12">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary-600 to-primary-700 rounded-2xl mb-6">
+          <span className="text-2xl text-white">🎓</span>
+        </div>
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          Create Your Learning Profile
+        </h1>
+        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          Help us understand your learning preferences to create the perfect personalized experience
+        </p>
+      </div>
+
+      {/* Progress Steps */}
+      <div className="mb-12">
+        <div className="flex items-center justify-center space-x-4 mb-8">
+          {steps.map((step, index) => (
+            <div key={step.id} className="flex items-center">
+              <div className={`flex items-center justify-center w-12 h-12 rounded-full text-sm font-bold transition-all duration-300 ${
+                currentStep >= step.id 
+                  ? 'bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-lg' 
+                  : 'bg-gray-200 text-gray-500'
+              }`}>
+                {currentStep > step.id ? '✓' : step.icon}
+              </div>
+              {index < steps.length - 1 && (
+                <div className={`w-16 h-1 mx-2 rounded-full transition-all duration-300 ${
+                  currentStep > step.id ? 'bg-primary-600' : 'bg-gray-200'
+                }`}></div>
+              )}
+            </div>
+          ))}
+        </div>
+        
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            {steps[currentStep - 1].title}
+          </h2>
+          <div className="text-sm text-gray-500">
+            Step {currentStep} of {steps.length}
+          </div>
+        </div>
+
+          <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
+            <CardContent className="p-8">
+              <div className="min-h-[400px]">
+                {/* Step 1: Basic Information */}
+                {currentStep === 1 && (
+                  <div className="animate-fade-in space-y-6">
+                    <div className="text-center mb-8">
+                      <div className="text-6xl mb-4">👋</div>
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">Welcome! Let's get started</h3>
+                      <p className="text-gray-600">First, tell us a bit about yourself</p>
+                    </div>
+                    
+                    <Input
+                      label="What's your name?"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      placeholder="Enter your full name"
+                      required
+                      error={errors.name}
+                      className="text-lg py-4"
+                    />
+                  </div>
+                )}
+
+                {/* Step 2: Learning Style */}
+                {currentStep === 2 && (
+                  <div className="animate-fade-in space-y-6">
+                    <div className="text-center mb-8">
+                      <div className="text-6xl mb-4">🎯</div>
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">How do you learn best?</h3>
+                      <p className="text-gray-600">Choose the learning style that resonates with you most</p>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {learningStyleOptions.map((option) => (
+                        <label
+                          key={option.value}
+                          className={`relative p-6 border-2 rounded-2xl cursor-pointer transition-all duration-300 hover:shadow-lg ${
+                            formData.learning_style === option.value
+                              ? 'border-primary-600 bg-primary-50 shadow-lg'
+                              : 'border-gray-200 hover:border-primary-300'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="learning_style"
+                            value={option.value}
+                            checked={formData.learning_style === option.value}
+                            onChange={handleInputChange}
+                            className="sr-only"
+                          />
+                          <div className="flex items-start space-x-4">
+                            <div className="text-3xl">{option.icon}</div>
+                            <div className="flex-1">
+                              <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                                {option.label}
+                              </h4>
+                              <p className="text-sm text-gray-600">
+                                {option.description}
+                              </p>
+                            </div>
+                          </div>
+                          {formData.learning_style === option.value && (
+                            <div className="absolute top-4 right-4 w-6 h-6 bg-primary-600 rounded-full flex items-center justify-center">
+                              <span className="text-white text-sm">✓</span>
+                            </div>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                    {errors.learning_style && (
+                      <p className="text-sm text-red-600 text-center">{errors.learning_style}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 3: Subject and Knowledge Level */}
+                {currentStep === 3 && (
+                  <div className="animate-fade-in space-y-8">
+                    <div className="text-center mb-8">
+                      <div className="text-6xl mb-4">📚</div>
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">What would you like to learn?</h3>
+                      <p className="text-gray-600">Choose your subject and current knowledge level</p>
+                    </div>
+
+                    {/* Custom Subject Input */}
+                    <div>
+                      <Input
+                        label="Subject"
+                        name="subject"
+                        value={formData.subject}
+                        onChange={handleInputChange}
+                        placeholder="e.g., Physics, Chemistry, History, Programming, Photography, Cooking, etc."
+                        required
+                        error={errors.subject}
+                        className="text-lg py-4"
+                      />
+                      
+                      {formData.subject && (
+                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <span className="text-blue-600">🤖</span>
+                            <span className="text-blue-800 font-medium">AI Assistant</span>
+                          </div>
+                          <p className="text-blue-700 text-sm">
+                            Great choice! I'll generate personalized focus areas and create custom assessments for <strong>{formData.subject}</strong> based on your learning style and knowledge level.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-lg font-semibold text-gray-900 mb-4">
+                        Current Knowledge Level
+                      </label>
+                      <div className="bg-gray-50 rounded-xl p-6">
+                        <input
+                          type="range"
+                          name="knowledge_level"
+                          min="1"
+                          max="5"
+                          value={formData.knowledge_level}
+                          onChange={handleInputChange}
+                          className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                        />
+                        <div className="flex justify-between text-sm text-gray-500 mt-3">
+                          <span>Beginner</span>
+                          <span className="font-semibold text-primary-600 text-lg">
+                            Level {formData.knowledge_level}
+                          </span>
+                          <span>Expert</span>
+                        </div>
+                        <div className="text-center mt-2">
+                          <div className="inline-flex items-center px-4 py-2 bg-primary-100 text-primary-700 rounded-full text-sm font-medium">
+                            {formData.knowledge_level === 1 && "Just starting out"}
+                            {formData.knowledge_level === 2 && "Some basic knowledge"}
+                            {formData.knowledge_level === 3 && "Intermediate understanding"}
+                            {formData.knowledge_level === 4 && "Advanced knowledge"}
+                            {formData.knowledge_level === 5 && "Expert level"}
+                          </div>
+                        </div>
+                      </div>
+                      {errors.knowledge_level && (
+                        <p className="text-sm text-red-600 mt-2">{errors.knowledge_level}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 4: Focus Areas */}
+                {currentStep === 4 && (
+                  <div className="animate-fade-in space-y-6">
+                    <div className="text-center mb-8">
+                      <div className="text-6xl mb-4">🎯</div>
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">Areas to focus on</h3>
+                      <p className="text-gray-600">
+                        Select topics you'd like to improve in {formData.subject} (optional)
+                      </p>
+                    </div>
+
+                    {/* AI-Generated Focus Areas */}
+                    <div>
+                      {customFocusAreas.length === 0 ? (
+                        <div className="text-center py-8">
+                          <div className="text-4xl mb-4">🤖</div>
+                          <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                            Generate AI Focus Areas
+                          </h4>
+                          <p className="text-gray-600 mb-6">
+                            Let our AI create personalized focus areas for <strong>{formData.subject}</strong>
+                          </p>
+                          <Button
+                            onClick={generateCustomFocusAreas}
+                            loading={isGeneratingFocusAreas}
+                            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                          >
+                            <span className="mr-2">✨</span>
+                            {isGeneratingFocusAreas ? 'Generating Focus Areas...' : 'Generate Focus Areas'}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-lg font-semibold text-gray-900">
+                              AI-Generated Focus Areas for {formData.subject}
+                            </h4>
+                            <Button
+                              onClick={generateCustomFocusAreas}
+                              loading={isGeneratingFocusAreas}
+                              variant="outline"
+                              size="sm"
+                              className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                            >
+                              <span className="mr-1">🔄</span>
+                              Regenerate
+                            </Button>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {customFocusAreas.map((area, index) => (
+                              <label
+                                key={index}
+                                className={`flex items-center space-x-3 p-4 border-2 rounded-xl cursor-pointer transition-all duration-300 hover:shadow-lg ${
+                                  formData.weak_areas.includes(area)
+                                    ? 'border-primary-600 bg-primary-50 shadow-lg'
+                                    : 'border-gray-200 hover:border-primary-300'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={formData.weak_areas.includes(area)}
+                                  onChange={() => handleWeakAreaChange(area)}
+                                  className="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                />
+                                <span className="text-sm font-medium text-gray-700 capitalize">
+                                  {area}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                          
+                          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-green-600">🤖</span>
+                              <span className="text-green-800 font-medium">AI Generated</span>
+                            </div>
+                            <p className="text-green-700 text-sm mt-1">
+                              These focus areas were automatically generated based on your subject and knowledge level.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Selected Focus Areas Display */}
+                    {formData.weak_areas.length > 0 && (
+                      <div className="mt-6 p-4 bg-primary-50 rounded-xl border border-primary-200">
+                        <h4 className="font-medium text-primary-900 mb-2">Selected focus areas:</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {formData.weak_areas.map((area, index) => (
+                            <span
+                              key={index}
+                              className="inline-flex items-center px-3 py-1 bg-primary-600 text-white rounded-full text-sm font-medium"
+                            >
+                              {area}
+                              <button
+                                type="button"
+                                onClick={() => handleWeakAreaChange(area)}
+                                className="ml-2 hover:bg-primary-700 rounded-full p-0.5"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* What happens next section */}
+                    <div className="bg-gradient-to-r from-blue-50 to-primary-50 border border-blue-200 rounded-xl p-6">
+                      <div className="flex items-start space-x-3">
+                        <div className="text-2xl">🚀</div>
+                        <div>
+                          <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                            What happens next?
+                          </h4>
+                          <div className="space-y-2 text-sm text-gray-700">
+                            <p>• Take a custom AI-powered assessment for <strong>{formData.subject}</strong></p>
+                            <p>• Get a personalized learning path with AI-generated content</p>
+                            <p>• Learn with adaptive materials tailored to your subject and learning style</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Navigation Buttons */}
+              <div className="flex justify-between items-center pt-8 border-t border-gray-200">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={currentStep === 1 ? () => router.push('/dashboard') : handlePrevious}
+                  className="px-6 py-3"
+                  disabled={showLoader}
+                >
+                  {currentStep === 1 ? 'Back to Dashboard' : 'Previous'}
+                </Button>
+
+                <div className="flex space-x-3">
+                  {currentStep < 4 ? (
+                    <Button
+                      type="button"
+                      onClick={handleNext}
+                      className="px-8 py-3"
+                      style={{ backgroundColor: '#8700e2' }}
+                      disabled={currentStep === 3 && !formData.subject.trim()}
+                    >
+                      Continue
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      onClick={handleSubmit}
+                      loading={isLoading}
+                      disabled={showLoader}
+                      className="px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {showLoader ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                          Processing...
+                        </>
+                      ) : (
+                        'Create Profile & Start Assessment'
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+}

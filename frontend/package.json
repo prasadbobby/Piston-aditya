@@ -12,6 +12,7 @@
     "@google-cloud/local-auth": "^3.0.1",
     "@heroicons/react": "^2.2.0",
     "axios": "^1.6.2",
+    "firebase": "^12.2.1",
     "googleapis": "^150.0.1",
     "lucide-react": "^0.294.0",
     "next": "^14.0.4",
