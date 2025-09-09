@@ -1,3 +1,4 @@
+// frontend/components/layout/DashboardLayout.js
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
@@ -6,6 +7,7 @@ import { useAuth } from '../../lib/AuthContext';
 import { cn } from '../../lib/utils';
 import toast from 'react-hot-toast';
 
+// Icon components
 const HomeIcon = ({ className }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
@@ -15,6 +17,12 @@ const HomeIcon = ({ className }) => (
 const UserPlusIcon = ({ className }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+  </svg>
+);
+
+const SparklesIcon = ({ className }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
   </svg>
 );
 
@@ -40,12 +48,6 @@ const CogIcon = ({ className }) => (
 const LogoutIcon = ({ className }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-  </svg>
-);
-
-const MenuIcon = ({ className }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
   </svg>
 );
 
@@ -77,9 +79,9 @@ export default function DashboardLayout({ children, title = "Dashboard" }) {
       current: pathname === '/dashboard'
     },
     {
-      name: 'Create Profile',
+      name: 'AI Generator',
       href: '/dashboard/create-profile',
-      icon: UserPlusIcon,
+      icon: SparklesIcon,
       current: pathname === '/dashboard/create-profile'
     },
     {
@@ -106,7 +108,7 @@ export default function DashboardLayout({ children, title = "Dashboard" }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-screen flex overflow-hidden bg-gray-50">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
@@ -117,35 +119,23 @@ export default function DashboardLayout({ children, title = "Dashboard" }) {
         </div>
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - No Branding */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-xl border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col",
+        "fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-xl border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col h-full",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        {/* Logo Section */}
-        <div className="flex items-center justify-between h-20 px-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-indigo-700">
-          <Link href="/dashboard" className="flex items-center space-x-3">
-            <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center shadow-lg">
-              <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <div>
-              <span className="text-xl font-bold text-white">Agent Guru</span>
-              <div className="text-xs text-blue-100">AI Learning Platform</div>
-            </div>
-          </Link>
-          
+        {/* Top Section - Just Close Button for Mobile */}
+        <div className="flex items-center justify-end h-16 px-6 border-b border-gray-200 flex-shrink-0 lg:hidden">
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-2 rounded-md text-white hover:bg-white/10 transition-colors"
+            className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 transition-colors"
           >
             <XMarkIcon className="h-6 w-6" />
           </button>
         </div>
 
         {/* User Profile Section */}
-        <div className="px-6 py-6 border-b border-gray-200 bg-gray-50">
+        <div className="px-6 py-6 border-b border-gray-200 bg-gray-50 flex-shrink-0">
           <div className="flex items-center space-x-4">
             {user?.photoURL ? (
               <img 
@@ -154,7 +144,7 @@ export default function DashboardLayout({ children, title = "Dashboard" }) {
                 className="h-12 w-12 rounded-xl object-cover shadow-md"
               />
             ) : (
-              <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
+              <div className="h-12 w-12 bg-gradient-to-br from-brand-primary to-brand-light rounded-xl flex items-center justify-center shadow-md">
                 <span className="text-white font-semibold text-lg">
                   {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                 </span>
@@ -171,7 +161,7 @@ export default function DashboardLayout({ children, title = "Dashboard" }) {
                 "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mt-2",
                 user?.isAdmin 
                   ? "bg-yellow-100 text-yellow-800 border border-yellow-200" 
-                  : "bg-blue-100 text-blue-800 border border-blue-200"
+                  : "bg-brand-100 text-brand-800 border border-brand-200"
               )}>
                 {user?.isAdmin ? '👑 Admin' : '🎓 Student'}
               </span>
@@ -179,7 +169,7 @@ export default function DashboardLayout({ children, title = "Dashboard" }) {
           </div>
         </div>
 
-        {/* Navigation */}
+        {/* Navigation - Scrollable if needed */}
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
           <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4 px-3">
             Main Menu
@@ -194,23 +184,23 @@ export default function DashboardLayout({ children, title = "Dashboard" }) {
                 className={cn(
                   'group flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 relative',
                   item.current
-                    ? 'bg-blue-50 text-blue-700 shadow-md border border-blue-100'
+                    ? 'bg-brand-50 text-brand-700 shadow-md border border-brand-100'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 )}
               >
                 {item.current && (
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r-full"></div>
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-600 rounded-r-full"></div>
                 )}
                 <IconComponent 
                   className={cn(
                     'mr-4 h-5 w-5 transition-colors flex-shrink-0',
-                    item.current ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500'
+                    item.current ? 'text-brand-600' : 'text-gray-400 group-hover:text-gray-500'
                   )} 
                 />
                 <span className="truncate">{item.name}</span>
                 {item.current && (
                   <div className="ml-auto">
-                    <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                    <div className="w-2 h-2 bg-brand-600 rounded-full"></div>
                   </div>
                 )}
               </Link>
@@ -219,26 +209,26 @@ export default function DashboardLayout({ children, title = "Dashboard" }) {
         </nav>
 
         {/* Quick Actions */}
-        <div className="px-4 py-4 border-t border-gray-200 bg-gray-50">
+        <div className="px-4 py-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
           <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-3">
             Quick Actions
           </div>
           <Link
             href="/dashboard/create-profile"
-            className="group flex items-center px-3 py-3 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl hover:from-blue-700 hover:to-indigo-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 mb-3"
+            className="group flex items-center px-3 py-3 text-sm font-medium text-white bg-gradient-to-r from-brand-primary to-brand-light rounded-xl hover:from-brand-700 hover:to-brand-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 mb-3"
           >
-            <UserPlusIcon className="mr-3 h-5 w-5" />
-            <span>New Profile</span>
+            <SparklesIcon className="mr-3 h-5 w-5" />
+            <span>AI Generator</span>
             <div className="ml-auto">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
           </Link>
         </div>
 
         {/* Logout Section */}
-        <div className="px-4 py-4 border-t border-gray-200">
+        <div className="px-4 py-4 border-t border-gray-200 flex-shrink-0">
           <button
             onClick={handleLogout}
             className="group flex items-center px-3 py-3 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl w-full transition-all duration-200"
@@ -255,55 +245,18 @@ export default function DashboardLayout({ children, title = "Dashboard" }) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen lg:ml-0">
-        {/* Top Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
-          <div className="flex items-center justify-between h-16 px-6">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 transition-colors"
-              >
-                <MenuIcon className="h-6 w-6" />
-              </button>
-              
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-                <div className="text-sm text-gray-500">
-                  Welcome back, {user?.name?.split(' ')[0] || 'User'}
-                </div>
-              </div>
+      <div className="flex-1 flex flex-col overflow-hidden h-full">
+        {/* Main Content Area - Scrollable */}
+        <main className="flex-1 overflow-auto bg-gray-50">
+          <div className="p-8">
+            <div className="max-w-7xl mx-auto">
+              {children}
             </div>
-
-            <div className="flex items-center space-x-4">
-              {/* Notification Bell */}
-              <button className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5M15 17v5m0-5H9a6 6 0 010-12h6m0 5h5l-5-5" />
-                </svg>
-              </button>
-
-              {/* Quick Create Button - Desktop */}
-              <Link
-                href="/dashboard/create-profile"
-                className="hidden sm:flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 shadow-sm hover:shadow-md"
-              >
-                <UserPlusIcon className="h-4 w-4 mr-2" />
-                New Profile
-              </Link>
-            </div>
-          </div>
-        </header>
-
-        {/* Main Content Area */}
-        <main className="flex-1 p-8 bg-gray-50">
-          <div className="max-w-7xl mx-auto">
-            {children}
           </div>
         </main>
 
         {/* Footer */}
-        <footer className="bg-white border-t border-gray-200 px-6 py-4">
+        <footer className="bg-white border-t border-gray-200 px-6 py-4 flex-shrink-0">
           <div className="flex items-center justify-between text-sm text-gray-500">
             <div className="flex items-center space-x-4">
               <span>© 2024 Agent Guru</span>

@@ -1,3 +1,4 @@
+// frontend/app/dashboard/history/page.js
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -16,7 +17,7 @@ const getItemIcon = (type) => {
     case 'path_started':
       return '🛤️';
     case 'learning_completed':
-      return '🎓';
+      return '🏆';
     default:
       return '📊';
   }
@@ -25,7 +26,7 @@ const getItemIcon = (type) => {
 const getItemColor = (type) => {
   switch (type) {
     case 'profile_created':
-      return 'bg-blue-100 text-blue-800 border-blue-200';
+      return 'bg-brand-100 text-brand-800 border-brand-200';
     case 'quiz_completed':
       return 'bg-green-100 text-green-800 border-green-200';
     case 'path_started':
@@ -90,7 +91,7 @@ export default function HistoryPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
@@ -115,9 +116,12 @@ export default function HistoryPage() {
           <div className="mt-4 sm:mt-0">
             <Button
               onClick={() => router.push('/dashboard/create-profile')}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-gradient-to-r from-brand-primary to-brand-light hover:from-brand-700 hover:to-brand-800 text-white"
             >
-              + Create New Profile
+              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Create New Profile
             </Button>
           </div>
         </div>
@@ -130,7 +134,7 @@ export default function HistoryPage() {
                 onClick={() => handleFilterChange('all')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   filter === 'all'
-                    ? 'bg-blue-600 text-white shadow-md'
+                    ? 'bg-brand-primary text-white shadow-md'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -140,7 +144,7 @@ export default function HistoryPage() {
                 onClick={() => handleFilterChange('profile_created')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   filter === 'profile_created'
-                    ? 'bg-blue-600 text-white shadow-md'
+                    ? 'bg-brand-primary text-white shadow-md'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -150,7 +154,7 @@ export default function HistoryPage() {
                 onClick={() => handleFilterChange('quiz_completed')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   filter === 'quiz_completed'
-                    ? 'bg-blue-600 text-white shadow-md'
+                    ? 'bg-brand-primary text-white shadow-md'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -176,7 +180,7 @@ export default function HistoryPage() {
               </p>
               <Button
                 onClick={() => router.push('/dashboard/create-profile')}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-gradient-to-r from-brand-primary to-brand-light hover:from-brand-700 hover:to-brand-800 text-white"
               >
                 Create Your First Profile
               </Button>
@@ -265,7 +269,7 @@ export default function HistoryPage() {
                                 {item.weak_areas.slice(0, 3).map((area, index) => (
                                   <span 
                                     key={index}
-                                    className="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded-full"
+                                    className="inline-flex items-center px-2 py-1 bg-brand-100 text-brand-800 text-xs font-medium rounded-full"
                                   >
                                     {area}
                                   </span>
@@ -291,7 +295,7 @@ export default function HistoryPage() {
                               size="sm"
                               variant="outline"
                               onClick={() => router.push(`/learning-path/${item.result.profile_id}`)}
-                              className="text-xs"
+                              className="text-xs border-brand-300 text-brand-600 hover:bg-brand-50"
                             >
                               View Path
                             </Button>
@@ -308,12 +312,12 @@ export default function HistoryPage() {
 
         {/* Stats Summary */}
         {filteredHistory.length > 0 && (
-          <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
+          <Card className="bg-gradient-to-r from-brand-50 to-purple-50 border border-brand-200">
             <CardContent className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">📊 Your Learning Stats</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">
+                  <div className="text-2xl font-bold text-brand-600">
                     {history.filter(h => h.type === 'profile_created').length}
                   </div>
                   <div className="text-sm text-gray-600">Profiles Created</div>
