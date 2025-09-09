@@ -308,17 +308,6 @@ export default function ProfileCreationLoader({ isVisible, onComplete, profileId
          </div>
        )}
 
-       {/* Debug Info (only in development) */}
-       {process.env.NODE_ENV === 'development' && (
-         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-xs text-yellow-800">
-           <div>Profile ID: {profileId || 'Not set'}</div>
-           <div>Current Stage: {currentStage}</div>
-           <div>Waiting for Pretest: {isWaitingForPretest ? 'Yes' : 'No'}</div>
-           <div>Pretest Ready: {pretestReady ? 'Yes' : 'No'}</div>
-           <div>Retry Count: {retryCount}</div>
-         </div>
-       )}
-
        {/* AI Features Preview */}
        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-4 border border-blue-200">
          <div className="grid grid-cols-2 gap-4 text-sm">
